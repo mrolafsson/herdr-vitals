@@ -1,0 +1,11 @@
+{
+  "hosts": [
+    "gpu-box",
+    { "name": "build", "ssh": "ci@build-01.example.net" },
+    { "name": "edge", "ssh": "ssh://me@edge.example.net:2222" }
+  ],
+  "herdr_machines": true,
+  "local": true,
+  "interval_seconds": 2,
+  "theme": ""
+}

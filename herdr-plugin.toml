@@ -1,0 +1,67 @@
+id = "herdr-vitals"
+name = "Vitals"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "How your machines are doing, at a glance: CPU, load, memory, disks (and when they'll be full), network and what's busiest, for this machine and every one you work on over ssh. A popup, or a pane that stays."
+platforms = ["linux", "macos"]
+
+# Builds ./bin/herdr-vitals from source with Go, or downloads the release
+# binary for this version when Go isn't installed.
+[[build]]
+command = ["sh", "scripts/build.sh"]
+
+# Bind these to keys in ~/.config/herdr/config.toml:
+#   [[keys.command]]
+#   key = "prefix+alt+v"
+#   type = "plugin_action"
+#   command = "herdr-vitals.open"
+#
+#   [[keys.command]]
+#   key = "prefix+alt+shift+v"
+#   type = "plugin_action"
+#   command = "herdr-vitals.pane"
+[[actions]]
+id = "open"
+title = "Vitals: your machines"
+description = "A card for every machine: CPU, load, memory, disks, network and its busiest process, live. Enter on one for its graphs, cores, filesystems and processes."
+contexts = ["global", "workspace", "pane"]
+command = ["./bin/herdr-vitals", "action", "open"]
+
+[[actions]]
+id = "pane"
+title = "Vitals: keep in a pane"
+description = "Open the monitor in a pane beside this one, where it stays; run it again to close it. In a pane a line or two high, it's one line: each machine's load and a small graph of it."
+contexts = ["global", "workspace", "pane"]
+command = ["./bin/herdr-vitals", "action", "pane"]
+
+[[actions]]
+id = "demo"
+title = "Vitals: demo (fictional machines)"
+description = "The popup on made-up machines: try it, or take screenshots without showing your own."
+contexts = ["global"]
+command = ["./bin/herdr-vitals", "action", "demo"]
+
+# The sampler: reads every machine lightly in the background, so the monitor
+# (and herdr-recap's header) opens on full graphs, has a day to look back
+# on, and can toast when a machine runs low. It returns at once; the sampler
+# runs detached, one at a time, and goes when herdr does.
+[[startup]]
+command = ["./bin/herdr-vitals", "sampler", "--detach"]
+
+# The popup, opened by the actions above (the demo with a flag in its env).
+# Called picker, as the other herdr plugins' popups are: it's how they find
+# it (herdr-recap's header opens it).
+[[panes]]
+id = "picker"
+title = "Vitals"
+placement = "popup"
+width = "90%"
+height = "85%"
+command = ["./bin/herdr-vitals", "picker"]
+
+# The monitor that stays, opened beside the pane you're in.
+[[panes]]
+id = "pane"
+title = "Vitals"
+placement = "split"
+command = ["./bin/herdr-vitals", "pane"]
