@@ -10,23 +10,45 @@ import (
 // The details of one machine: every reading as a graph of its last few
 // minutes, each core, every filesystem and the busiest processes.
 
-// viewDetail is the machine's details in height lines: the graphs as tall
-// as fit, the rest of the room for processes.
+// viewDetail is the machine's details for height lines: the graphs as tall
+// as leave room for the lists under them. When even the smallest don't,
+// it's all of it, and the screen scrolls.
 func (m model) viewDetail(h *hostState, height int) []string {
 	w := m.width - 4 // two cells of margin either side
 	head := m.detailHead(h, w)
 	if !h.up() {
 		return indent(append(head, append([]string{""}, m.downLines(h, w)...)...))
 	}
-	for _, size := range [][2]int{{6, 4}, {5, 3}, {4, 3}, {3, 2}, {2, 2}, {2, 1}, {1, 1}} {
-		top := m.detailGraphs(h, w, size[0], size[1])
-		room := height - len(head) - len(top) - 2
-		if room >= 4 || size[0] == 1 {
-			lines := append(head, "")
-			lines = append(lines, top...)
-			lines = append(lines, "")
-			lines = append(lines, m.detailLists(h, w, max(1, room))...)
-			return indent(lines)
+	// The only machine: the AI accounts here too, as there's no card for
+	// them: every limit when there's room, else each account's week, else
+	// none (the header names the nearest, and a has them all). The graphs
+	// keep their size first; then the most of the accounts that fits.
+	variants := [][]string{nil}
+	if m.single() {
+		variants = nil
+		for _, v := range [][]string{m.aiCompact(w), m.aiWeeks(w)} {
+			if len(v) > 0 {
+				variants = append(variants, append([]string{""}, v...))
+			}
+		}
+		variants = append(variants, nil)
+	}
+	sizes := [][2]int{{6, 4}, {5, 3}, {4, 3}, {3, 2}, {2, 2}, {2, 1}, {1, 1}}
+	if m.mode == modePane {
+		sizes = sizes[3:] // beside your work, a glance: small graphs
+	}
+	lists := m.detailLists(h, w)
+	for _, size := range sizes {
+		graphs := m.detailGraphs(h, w, size[0], size[1])
+		for _, ai := range variants {
+			top := append(append([]string(nil), graphs...), ai...)
+			if len(head)+len(top)+len(lists)+2 <= height || (size[0] == 1 && ai == nil) {
+				lines := append(head, "")
+				lines = append(lines, top...)
+				lines = append(lines, "")
+				lines = append(lines, lists...)
+				return indent(lines)
+			}
 		}
 	}
 	return nil
@@ -56,7 +78,13 @@ func (m model) detailHead(h *hostState, w int) []string {
 	if u := uptimeText(s.Uptime); u != "" {
 		about = append(about, "up "+u)
 	}
-	return []string{spread(title, styleDim.Render(strings.Join(nonEmpty(about), " · ")), w)}
+	line := styleDim.Render(strings.Join(nonEmpty(about), " · "))
+	// Both on a line when they fit; else the name keeps its line, and what
+	// the machine is goes under it.
+	if lipgloss.Width(title)+2+lipgloss.Width(line) <= w {
+		return []string{spread(title, line, w)}
+	}
+	return []string{fit(title, w), fit(line, w)}
 }
 
 func nonEmpty(ss []string) []string {
@@ -240,7 +268,7 @@ func columns(left, right []string, colW, w int) []string {
 
 // detailLists is the filesystems beside the busiest processes, in height
 // lines at most.
-func (m model) detailLists(h *hostState, w, height int) []string {
+func (m model) detailLists(h *hostState, w int) []string {
 	colW := w
 	if w >= 80 {
 		colW = (w - 3) / 2
@@ -266,21 +294,12 @@ func (m model) detailLists(h *hostState, w, height int) []string {
 	if len(h.last.Disks) == 0 {
 		fs = append(fs, styleDim.Render("None worth showing."))
 	}
-	procRoom := height - 1
-	if colW == w {
-		procRoom = height - len(fs) - 2
-	}
-	// The busiest few; t has all of them, the whole screen.
 	procs := []string{fit(styleHeader.Render("BUSIEST")+styleDim.Render("  t for every process"), colW)}
 	for i, p := range h.v.Top {
-		if i >= procRoom || i >= 5 {
+		if i >= 5 {
 			break
 		}
 		procs = append(procs, procLine(p, h, false, 0, 0, colW))
 	}
-	out := columns(fs, procs, colW, w)
-	if len(out) > height {
-		out = out[:height]
-	}
-	return out
+	return columns(fs, procs, colW, w)
 }

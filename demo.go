@@ -220,3 +220,80 @@ func demoDay(i int, now time.Time) []point {
 	}
 	return out
 }
+
+// demoUsage is made-up accounts and agents: a work account with room to
+// spare, a personal one near its five hours, and Codex.
+func demoUsage(now time.Time) aiUsage {
+	at := func(d time.Duration) time.Time { return now.Add(d) }
+	u := aiUsage{At: now, Accounts: []account{
+		{Key: "work", Kind: "claude", Name: "work", Plan: "Max 20x", At: at(-time.Minute), Limits: []limitBar{
+			{Label: "session", Percent: 42, ResetsAt: at(2*time.Hour + 10*time.Minute)},
+			{Label: "week", Percent: 63, ResetsAt: at(4*24*time.Hour + 3*time.Hour), Active: true},
+			{Label: "Fable", Percent: 28, ResetsAt: at(4*24*time.Hour + 3*time.Hour), Model: true},
+		}},
+		{Key: "personal", Kind: "claude", Name: "personal", Plan: "Pro", At: at(-2 * time.Minute), Limits: []limitBar{
+			{Label: "session", Percent: 91, Severity: "warning", ResetsAt: at(38 * time.Minute), Active: true},
+			{Label: "week", Percent: 34, ResetsAt: at(2*24*time.Hour + 9*time.Hour)},
+		}},
+		{Key: "codex", Kind: "codex", Name: "Codex", Plan: "prolite", At: at(-6 * time.Minute), Credits: "72k credits", Limits: []limitBar{
+			{Label: "week", Percent: 17, ResetsAt: at(6*24*time.Hour + 5*time.Hour)},
+		}},
+	}}
+	type ag struct {
+		account, title, space, status, model string
+		work                                 int64
+		busy                                 float64 // tokens a minute, at its busiest
+		phase                                float64
+	}
+	for i, a := range []ag{
+		{"work", "Billing webhooks to v2 events", "billing", "blocked", "claude-opus-5-5", 18_400_000, 0, 0},
+		{"work", "Flaky checkout tests", "web", "working", "claude-opus-5-5", 9_800_000, 9000, 1},
+		{"work", "Migrate search to the new index", "search", "working", "claude-sonnet-5-5", 4_100_000, 14000, 2.5},
+		{"work", "Release notes for 4.2", "docs", "done", "claude-haiku-5-5", 600_000, 1500, 4},
+		{"personal", "Garden planner app", "garden", "working", "claude-opus-5-5", 7_300_000, 21000, 3},
+		{"codex", "Port the CLI to Rust", "cli-rs", "idle", "gpt-6-astra", 2_200_000, 3000, 5},
+	} {
+		r := agentRow{Info: agentInfo{PaneID: "w" + itoa(i+1) + ":p1", Agent: "claude", Status: a.status, Title: a.title},
+			Space: a.space, Model: a.model, Work: a.work, Cached: a.work * 30, Account: a.account}
+		if a.account == "codex" {
+			r.Info.Agent = "codex"
+		}
+		// A day of minutes: busy in bursts through the working day.
+		r.Minutes = make([]float64, minutesKept)
+		for m := range r.Minutes {
+			f := float64(m)
+			// Busy through the last few hours, whenever it's looked at.
+			ago := float64(minutesKept - 1 - m)
+			day := math.Max(0.15, math.Sin(math.Pi*(1-ago/(10*60)))) * math.Max(0.2, 1-ago/(14*60))
+			v := a.busy * day * (0.5 + 0.5*math.Sin(f/9+a.phase)) * math.Max(0, math.Sin(f/37+a.phase))
+			if a.status == "working" && m >= minutesKept-4 {
+				v = max(v, a.busy*0.3)
+			}
+			r.Minutes[m] = math.Round(max(0, v))
+		}
+		if a.status == "working" {
+			r.Rate = a.busy * 0.8
+		}
+		u.Agents = append(u.Agents, r)
+	}
+	u.History = map[string][]limitPoint{}
+	for _, a := range u.Accounts {
+		var ps []limitPoint
+		for k := 24 * 12; k >= 0; k-- { // every five minutes, a day
+			t := now.Add(-time.Duration(k) * 5 * time.Minute)
+			p := limitPoint{T: t.Unix(), P: map[string]float64{}}
+			for _, l := range a.Limits {
+				// The five hours fill and reset; the week climbs.
+				frac := 1 - float64(k)/(24*12)
+				v := l.Percent * (0.55 + 0.45*frac)
+				if l.Label == "session" {
+					v = l.Percent * math.Mod(frac*4.8+0.2, 1)
+				}
+				p.P[l.Label] = math.Round(v)
+			}
+			ps = append(ps, p)
+		}
+		u.History[a.Key] = ps
+	}
+	return u
+}

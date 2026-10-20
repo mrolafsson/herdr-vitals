@@ -15,9 +15,9 @@ func TestEverySizeFits(t *testing.T) {
 	for _, md := range []mode{modePopup, modePane} {
 		for _, sz := range sizes {
 			m := demoModel(t, md, sz[0], sz[1])
-			for view := range 4 {
+			for view := range 5 {
 				detail := view == 1 || view == 3
-				m.detail, m.procs, m.day = detail, view == 2, view == 3
+				m.detail, m.procs, m.day, m.aiView = detail, view == 2, view == 3, view == 4
 				if m.day {
 					m.readDay()
 				}
@@ -49,9 +49,15 @@ func TestKeysMoveAroundTheGrid(t *testing.T) {
 		t.Fatalf("right: %d", m.cursor)
 	}
 	press("down")
-	if m.cursor != 4 { // the last, alone on the next row: as far as it goes
+	if m.cursor != m.aiIdx() { // the AI card, after edge-02 on the next row
 		t.Fatalf("down: %d", m.cursor)
 	}
+	press("enter")
+	if !m.aiView {
+		t.Fatal("enter on the AI card didn't open the Agents screen")
+	}
+	press("esc")
+	press("left")
 	press("enter")
 	if !m.detail {
 		t.Fatal("enter didn't open the details")
@@ -119,5 +125,64 @@ func TestThePaneShowsWholeCards(t *testing.T) {
 	// Every card drawn has its bottom border.
 	if strings.Count(v, "╭") != strings.Count(v, "╰") {
 		t.Error("a card cut off")
+	}
+}
+
+// A screen taller than the room scrolls, saying what's above and below,
+// and gets to its end.
+func TestTheDetailsScroll(t *testing.T) {
+	m := demoModel(t, modePane, 60, 24) // narrow and short: one column, stacked
+	m.cursor, m.detail = 1, true
+	press := func(k string) {
+		next, _ := m.handleKey(keyMsg(k))
+		m = next.(model)
+	}
+	if len(m.body()) <= m.bodyHeight() {
+		t.Fatalf("the details fit in %d lines: nothing to scroll", m.bodyHeight())
+	}
+	v := m.View()
+	if !strings.Contains(v, "more · pgdn") || strings.Contains(v, "more · pgup") {
+		t.Fatalf("at the top: no word of what's below\n%s", v)
+	}
+	press("end")
+	v = m.View()
+	if strings.Contains(v, "more · pgdn") || !strings.Contains(v, "more · pgup") || !strings.Contains(v, "BUSIEST") {
+		t.Errorf("at the end: not at the end\n%s", v)
+	}
+	press("home")
+	press("down")
+	if m.scrollY != 1 {
+		t.Errorf("down scrolled to %d", m.scrollY)
+	}
+	next, _ := m.handleMouse(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonWheelDown})
+	if m = next.(model); m.scrollY != 4 {
+		t.Errorf("the wheel scrolled to %d", m.scrollY)
+	}
+}
+
+// On the Agents screen, ↑↓ go from session to session and the screen
+// follows; pgdn scrolls.
+func TestTheAgentsScreenFollowsTheSession(t *testing.T) {
+	m := demoModel(t, modePopup, 120, 22)
+	next, _ := m.openAI()
+	m = next.(model)
+	u := demoUsage(m.now)
+	m.ai = &u
+	for range len(u.Agents) - 1 {
+		next, _ := m.handleKey(keyMsg("down"))
+		m = next.(model)
+	}
+	if m.aiCursor != len(u.Agents)-1 {
+		t.Fatalf("cursor %d", m.aiCursor)
+	}
+	if !strings.Contains(m.View(), "Port the CLI to Rust") {
+		t.Errorf("the last session isn't on screen\n%s", m.View())
+	}
+	for range len(u.Agents) {
+		next, _ := m.handleKey(keyMsg("up"))
+		m = next.(model)
+	}
+	if m.scrollY != 0 && !strings.Contains(m.View(), "Billing webhooks") {
+		t.Errorf("back at the first session, it isn't on screen")
 	}
 }

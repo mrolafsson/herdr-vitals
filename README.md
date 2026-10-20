@@ -26,6 +26,11 @@ tells you when one runs low.
 - **A day to look back on.** `z` turns the graphs to the last 24 hours: the
   busy afternoon, the backup at three, when the disk started to fill.
 - **Every process**, the whole screen, by CPU or by memory (`t`).
+- **Your agents' AI usage and limits.** `a` shows every account your Claude
+  and Codex agents run on, how near each is to its 5-hour and weekly limits
+  and when they reset, and under it each agent's tokens and how fast it's
+  using them now. A toast at 80% of a limit, and at 95%. No clauth needed;
+  with it, its names and its idle accounts too.
 - **Nothing to install on your servers.** A few lines of shell over ssh,
   one connection a machine, reading `/proc` (Linux) or `sysctl` and
   `vm_stat` (macOS). Your ssh config and keys, as they are.
@@ -64,7 +69,7 @@ See [With Recap](#with-recap) for how the two meet.
 
 **Contents:** [Works with the other plugins](#works-with-the-other-herdr-plugins) ·
 [Requirements](#requirements) · [Install](#install) · [Use](#use) ·
-[Disks](#disks) · [Toasts](#toasts) · [Which machines](#which-machines) ·
+[Disks](#disks) · [AI usage and limits](#ai-usage-and-limits) · [Toasts](#toasts) · [Which machines](#which-machines) ·
 [With Recap](#with-recap) · [Configuration](#configuration) ·
 [Troubleshooting](#troubleshooting) · [How it works](#how-it-works) ·
 [Development](#development)
@@ -160,6 +165,7 @@ machine's load a core and a small graph of it:
 | `enter`, a click | Its details; again to go back. |
 | `z` | In the details: the last day, or the last few minutes. |
 | `t` | Every process on the machine, the whole screen; `m` sorts by memory or CPU. |
+| `a` | Your agents' accounts and limits, and each agent's usage; `enter` goes to an agent. |
 | `s` | Hottest first, or as listed. |
 | `r` | Reconnect what's down, now. |
 | `p` | Keep it in a pane (from the popup). |
@@ -178,6 +184,47 @@ nothing of a disk that's emptying, or won't fill within a month.
 How full is as `df` has it: of the space you can use, the blocks kept back
 for root not counted, so 100% is when writes fail.
 
+## AI usage and limits
+
+`a` shows every account your coding agents run on, each as graphs on one
+clock: its limits as gauges, with when they reset; its agents' usage, tokens
+a minute; and under the usage, how full each limit has been, so you can see
+the one drive the other. Under the accounts, every agent's session on the
+same clock. `z` turns them all from the last three hours to the last day.
+
+![Three accounts: work on Max 20x with room to spare, personal on Pro at 91% of its five hours, and Codex; under each its agents, with their models, a graph of their tokens a minute over the last half hour, how fast now and how many so far](docs/images/agents.png)
+
+- **Limits:** each account's 5-hour and weekly limits, and any for one
+  model, as full as they are and when they reset; yellow from 80%, red from
+  95% (or when Anthropic says so). How full they've been is written down
+  each time they're asked for, so that graph fills in over the day.
+- **Usage:** tokens a minute (all but cache reads, which cost a tenth as
+  much), each minute the mean of the five to it: a reply's tokens all land
+  in one minute, so minute by minute it's spikes. A graph's top is a little
+  over its busy moments; a rare burst (a session resumed, its whole context
+  cached at once) runs off it, and the top's label says `≥`.
+- **Sessions:** each agent's state, account, model, its usage on the same
+  clock, how fast now, and how many tokens this session. `enter` goes to it.
+- **On the machines' screen:** an AI card with each account's five hours
+  and week and its usage this hour (with one machine, in its details). The
+  header says which account is nearest a limit (`AI tvh week 100%`).
+
+**Claude:** the limits are what Claude Code's `/usage` shows, asked of
+Anthropic with each login the agents use (each agent's own
+`CLAUDE_CONFIG_DIR`, or `~/.claude`), every five minutes at most and only
+when something's looking. Two logins on one account are shown as one. A
+login whose token has run out is left until Claude Code renews it: Vitals
+never renews one. The token goes to `api.anthropic.com` and nowhere else,
+and isn't kept. On macOS, where `~/.claude`'s login is in the Keychain, the
+first look may ask to read it.
+
+**Codex:** its limits come with every reply, in its session's log: nothing
+to ask, but as of its last reply.
+
+**With clauth** (a manager for several Claude Code logins): accounts go by its
+profiles' names, its profiles with no agent running are shown too, and its
+own figures, when they're fresh, are used rather than asking again.
+
 ## Toasts
 
 A herdr toast, for any machine, when:
@@ -187,11 +234,14 @@ A herdr toast, for any machine, when:
 | **CPU** | above 90% for the last two minutes (not a spike) |
 | **Memory** | above 90% |
 | **A disk** | 90% full, or full within a day at the rate it's filling |
+| **An AI account** | 80% of one of its limits, and again at 95% |
 
 Each is said once, and not again until it has eased off well below the line
 (below 80%; a disk's fill past two days), so a machine hovering at the line
-doesn't toast on and off. What's been said is kept, so restarting herdr
-doesn't say it all again. `"alerts": false` turns them off.
+doesn't toast on and off; an account's limit, once it's back under 70%
+(it reset). What's been said is kept, so restarting herdr doesn't say it
+all again. `"alerts": false` turns them off; `"ai_alerts": false` only the
+accounts'.
 
 ## Which machines
 
@@ -244,6 +294,7 @@ herdr-vitals`); see [config.example.json](config.example.json).
 | `interval_seconds` | `2` | How often each machine is read. |
 | `background` | `true` | Keep the sampler running: full graphs on opening, the last day, the toasts. |
 | `alerts` | `true` | Toast when a machine runs low on CPU, memory or disk. |
+| `ai_alerts` | `true` | Toast when an AI account nears one of its limits. |
 | `theme` | ask the terminal | `"dark"` or `"light"`. |
 
 ## Troubleshooting
@@ -260,7 +311,17 @@ said. It's tried again by itself; `r` tries now.
 Check `"background"` isn't `false`.
 
 **`herdr-vitals list`** prints one reading of every machine as text, to set
-beside `top`, `free` and `df`.
+beside `top`, `free` and `df`; **`herdr-vitals agents`** the accounts and
+agents.
+
+**An account says "busy".** Anthropic turned the ask for its limits away:
+they're asked for often on that account (each Claude Code session on it
+asks too, so the more agents, the busier). It's asked again when Anthropic
+says, a minute or so, and meanwhile shows what it last said.
+
+**An account says "login expired".** No agent has used it for a while, so
+its token ran out; Vitals never renews one. It comes back when Claude Code
+next uses it.
 
 ## How it works
 
@@ -288,6 +349,7 @@ header start from.
 go test -race ./...
 go run . picker --demo       # the popup on fictional machines, in any terminal
 go run . list                # one reading of every machine, as text
+go run . agents              # the AI accounts and agents, as text
 herdr plugin link .          # try it in herdr
 sh scripts/screenshots.sh    # docs/images from the demo (needs freeze)
 ```

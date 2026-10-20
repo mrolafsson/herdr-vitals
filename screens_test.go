@@ -34,6 +34,8 @@ func demoModel(t *testing.T, md mode, width, height int) model {
 		}
 	}
 	m.beat = false
+	u := demoUsage(m.now)
+	m.ai = &u
 	next, _ := m.Update(tea.WindowSizeMsg{Width: width, Height: height})
 	return next.(model)
 }
@@ -75,9 +77,18 @@ func TestWriteDemoScreens(t *testing.T) {
 	day.readDay()
 	save("day", day)
 
+	agents := grid
+	agents.aiView, agents.aiCursor = true, 1
+	save("agents", agents)
+
 	procs := grid
 	procs.procs = true
 	save("procs", procs)
+
+	// One machine: its details, with the AI accounts in them.
+	one := demoModel(t, modePopup, 168, 46)
+	one.hosts, one.cursor, one.detail = one.hosts[:1], 0, true
+	save("one", one)
 
 	pane := demoModel(t, modePane, 62, 60)
 	save("pane", pane)

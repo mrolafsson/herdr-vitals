@@ -79,6 +79,10 @@ func ensureSampler(cfg config) {
 	}
 }
 
+// sampleCollector keeps the agents' logs read so far, across the sampler's
+// rounds, so each look reads only what's new.
+var sampleCollector = newCollector()
+
 // sampled is what the sampler keeps of one machine.
 type sampled struct {
 	t      target
@@ -152,6 +156,8 @@ func sampleFor(ctx context.Context, cfg config, alerts *alerts, d time.Duration)
 	done := time.After(d)
 	alive := time.NewTicker(30 * time.Second)
 	defer alive.Stop()
+	// The accounts the agents are on: their limits, every few minutes.
+	accountsDue := time.After(0)
 	misses := 0
 	for {
 		select {
@@ -159,6 +165,12 @@ func sampleFor(ctx context.Context, cfg config, alerts *alerts, d time.Duration)
 			return ""
 		case <-done:
 			return ""
+		case <-accountsDue:
+			accountsDue = time.After(limitsEvery)
+			if *cfg.Alerts && *cfg.AIAlerts {
+				u := sampleCollector.collect(ctx, time.Now())
+				alerts.checkAccounts(u.Accounts, time.Now())
+			}
 		case <-alive.C:
 			// herdr gone three times running (a minute and a half): go too.
 			if herdrCall("ping", nil, nil) != nil {

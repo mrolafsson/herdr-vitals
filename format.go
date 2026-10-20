@@ -25,9 +25,15 @@ func bytesText(n uint64) string {
 	return strconv.FormatFloat(v, 'f', 0, 64) + units[i:i+1]
 }
 
-// countText is a count, briefly: "418", "2.1k", "12k".
+// countText is a count, briefly: "418", "2.1k", "12k", "37M", "1.6B".
 func countText(n int) string {
 	switch {
+	case n >= 1e9:
+		return strconv.FormatFloat(float64(n)/1e9, 'f', 1, 64) + "B"
+	case n >= 10e6:
+		return strconv.Itoa(n/1e6) + "M"
+	case n >= 1e6:
+		return strconv.FormatFloat(float64(n)/1e6, 'f', 1, 64) + "M"
 	case n >= 10000:
 		return strconv.Itoa(n/1000) + "k"
 	case n >= 1000:

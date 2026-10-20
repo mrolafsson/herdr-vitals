@@ -25,6 +25,7 @@ const usage = `herdr-vitals — how your machines are doing, in herdr
   picker [--demo]  the popup itself
   pane [--demo]    the monitor pane itself
   list             one reading of every machine, as text
+  agents           every agent's usage and every account's limits, as text
   sampler          reads every machine in the background, for full graphs on
                    opening, a day's history and toasts when one runs low
                    (herdr starts it; --detach starts it if it isn't running)
@@ -79,6 +80,8 @@ func run(ctx context.Context, args []string) error {
 		return runUI(ctx, cfg, modePane, demo)
 	case "list":
 		return debugList(ctx, cfg)
+	case "agents":
+		return debugAgents(ctx)
 	default:
 		fmt.Print(usage)
 		return fmt.Errorf("unknown command %q", args[0])
@@ -118,20 +121,11 @@ func runAction(name string) error {
 	return fmt.Errorf("unknown action %q", name)
 }
 
-// paneFile holds the monitor pane's ID while it's open, so the same key
-// closes it again.
-func paneFile() string { return filepath.Join(stateDir(), "pane.id") }
-
 // togglePane opens the monitor beside the pane you're in, or closes it if
 // it's open (in any tab: there's one monitor).
 func togglePane() error {
-	if data, err := os.ReadFile(paneFile()); err == nil {
-		if id := strings.TrimSpace(string(data)); id != "" && paneExists(id) {
-			os.Remove(paneFile())
-			if closePane(id) {
-				return nil
-			}
-		}
+	if id := monitorPane(); id != "" && closePane(id) {
+		return nil
 	}
 	err := openPane("pane", nil)
 	if err != nil {
@@ -140,18 +134,37 @@ func togglePane() error {
 	return err
 }
 
-// notePane records the monitor's pane, and returns a func that forgets it
-// once it closes, unless another has taken its place.
-func notePane() func() {
-	id := os.Getenv("HERDR_PANE_ID")
-	if id == "" || os.MkdirAll(stateDir(), 0o700) != nil || os.WriteFile(paneFile(), []byte(id), 0o600) != nil {
-		return func() {}
+// monitorPane is the pane the monitor's open in, if it is: the one whose
+// program is this plugin's pane command. (herdr's HERDR_PANE_ID, in a pane
+// it opens, is the pane it was opened from, so the pane can't say itself.)
+func monitorPane() string {
+	var res struct {
+		Panes []struct {
+			ID string `json:"pane_id"`
+		} `json:"panes"`
 	}
-	return func() {
-		if data, err := os.ReadFile(paneFile()); err == nil && strings.TrimSpace(string(data)) == id {
-			os.Remove(paneFile())
+	if herdrCall("pane.list", nil, &res) != nil {
+		return ""
+	}
+	self, _ := os.Executable()
+	for _, p := range res.Panes {
+		procs, err := paneProcesses(p.ID)
+		if err != nil {
+			continue
+		}
+		for _, pr := range procs {
+			if len(pr.Argv) >= 2 && pr.Argv[len(pr.Argv)-1] == "pane" && isMonitor(pr.Argv[0], self) {
+				return p.ID
+			}
 		}
 	}
+	return ""
+}
+
+// isMonitor is whether a program is this one: by path, or by name when
+// herdr ran it by its relative path (./bin/herdr-vitals).
+func isMonitor(argv0, self string) bool {
+	return filepath.Base(argv0) == filepath.Base(self) || (self != "" && sameFile(argv0, self))
 }
 
 // debugList reads every machine twice, a round apart, and prints what it

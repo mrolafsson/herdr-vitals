@@ -52,6 +52,7 @@ type model struct {
 	procs      bool // the selected machine's processes, the whole screen
 	byMem      bool // the processes by memory, not CPU
 	procScroll int
+	scrollY    int  // the details' or the Agents screen's first line shown
 	hottest    bool // sorted hottest first, not as listed
 	scroll     int  // the first row of cards shown
 	width      int
@@ -67,6 +68,14 @@ type model struct {
 	dayOf    map[int][]point
 	dayRead  time.Time
 	sampling bool // the sampler's running: it writes the disks down
+	// The agents and their accounts (aiview.go): looked at now and then,
+	// often while their screen (aiView) is open.
+	ai         *aiUsage
+	aiView     bool
+	aiDay      bool // its graphs over the day, not three hours
+	aiCursor   int
+	col        *collector
+	collecting bool
 }
 
 type tickMsg time.Time
@@ -88,7 +97,7 @@ func newModel(ctx context.Context, cfg config, m mode, demo bool) model {
 		}
 	}
 	md := model{ctx: ctx, cfg: cfg, mode: m, demo: demo, hosts: hosts,
-		frames: make(chan frameMsg, 256), now: now, sampling: !demo && samplerRunning()}
+		frames: make(chan frameMsg, 256), now: now, sampling: !demo && samplerRunning(), col: newCollector()}
 	// One machine is all there is to see: its details, not a lonely card.
 	md.detail = len(hosts) == 1
 	md.start()
@@ -100,7 +109,7 @@ func newModel(ctx context.Context, cfg config, m mode, demo bool) model {
 func (m model) single() bool { return len(m.hosts) == 1 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(listen(m.frames), tick())
+	return tea.Batch(listen(m.frames), tick(), func() tea.Msg { return aiTickMsg{} })
 }
 
 // start sets every machine's watcher going.
@@ -139,6 +148,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case frameMsg:
 		m.apply(msg)
 		return m, listen(m.frames)
+	case aiTickMsg:
+		if m.collecting {
+			return m, m.aiTick()
+		}
+		m.collecting = true
+		return m, m.collectAI()
+	case aiMsg:
+		u := aiUsage(msg)
+		m.ai, m.collecting = &u, false
+		if m.cursor >= len(m.hosts) && !m.hasAICard() {
+			m.cursor = 0 // the AI card's gone
+		}
+		m.aiCursor = min(m.aiCursor, max(0, len(m.aiAgents())-1))
+		return m, m.aiTick()
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	case tea.MouseMsg:
@@ -215,6 +238,9 @@ func (m model) order() []int {
 			return ha.hist.CPU.avg(3) > hb.hist.CPU.avg(3)
 		})
 	}
+	if m.hasAICard() {
+		out = append(out, m.aiIdx())
+	}
 	return out
 }
 
@@ -230,6 +256,7 @@ func (m model) position() int {
 
 // moveBy selects the machine n places on in the order shown.
 func (m *model) moveBy(n int) {
+	m.scrollY = 0
 	o := m.order()
 	if len(o) == 0 {
 		return
@@ -246,13 +273,25 @@ func (m model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return next, cmd
 		}
 	}
+	if m.scrolls() {
+		if next, ok := m.scrollKey(k); ok {
+			return next, nil
+		}
+	}
+	if m.aiView {
+		if next, cmd, ok := m.aiKey(k); ok {
+			return next, cmd
+		}
+	}
 	switch k.String() {
 	case "ctrl+c", "q":
 		return m.quit()
 	case "t":
-		if len(m.hosts) > 0 {
+		if m.cursor < len(m.hosts) {
 			m.procs, m.procScroll = true, 0
 		}
+	case "a":
+		return m.openAI()
 	case "z":
 		if m.detail {
 			m.day = !m.day
@@ -270,8 +309,11 @@ func (m model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.quit()
 		}
 	case "enter", " ":
+		if m.cursor == m.aiIdx() && m.hasAICard() {
+			return m.openAI()
+		}
 		if len(m.hosts) > 1 {
-			m.detail = !m.detail
+			m.detail, m.scrollY = !m.detail, 0
 			m.keepInView()
 		}
 	case "left", "h", "shift+tab":
@@ -354,6 +396,16 @@ func (m *model) readDay() {
 	}
 }
 
+// openAI shows the Agents screen, looking at them afresh.
+func (m model) openAI() (tea.Model, tea.Cmd) {
+	m.aiView, m.aiCursor, m.scrollY = true, 0, 0
+	if !m.collecting {
+		m.collecting = true
+		return m, m.collectAI()
+	}
+	return m, nil
+}
+
 func (m model) quit() (tea.Model, tea.Cmd) {
 	if m.cancel != nil {
 		m.cancel()
@@ -369,11 +421,16 @@ func (m model) handleMouse(ev tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch ev.Button {
-	case tea.MouseButtonWheelUp:
-		m.moveBy(-1)
-		return m, nil
-	case tea.MouseButtonWheelDown:
-		m.moveBy(1)
+	case tea.MouseButtonWheelUp, tea.MouseButtonWheelDown:
+		n := 1
+		if ev.Button == tea.MouseButtonWheelUp {
+			n = -1
+		}
+		if m.scrolls() {
+			m.scrollBy(3 * n) // the details and the Agents screen scroll
+		} else {
+			m.moveBy(n) // the cards move along
+		}
 		return m, nil
 	case tea.MouseButtonLeft:
 	default:
@@ -385,10 +442,13 @@ func (m model) handleMouse(ev tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if m.detail || m.procs || m.strip() {
+	if m.detail || m.procs || m.aiView || m.strip() {
 		return m, nil
 	}
 	if i, ok := m.cardAt(ev.X, ev.Y); ok {
+		if i == m.cursor && i == m.aiIdx() {
+			return m.openAI()
+		}
 		if i == m.cursor {
 			m.detail = true
 		}
@@ -401,6 +461,20 @@ func (m model) handleMouse(ev tea.MouseMsg) (tea.Model, tea.Cmd) {
 // footer is the keys along the bottom, for where you are.
 func (m model) footer() []hint {
 	var hs []hint
+	if m.aiView {
+		span := "z last day"
+		if m.aiDay {
+			span = "z last 3h"
+		}
+		hs = append(hs, hint{"esc back", "esc", hintQuiet}, hint{span, "z", hintView}, hint{"↑↓ session", "down", hintView})
+		if len(m.body()) > m.bodyHeight() {
+			hs = append(hs, hint{"pgdn more", "pgdown", hintView})
+		}
+		if !m.demo {
+			hs = append(hs, hint{"enter go to it", "enter", hintGo})
+		}
+		return hs
+	}
 	if m.procs {
 		sortBy := "m by memory"
 		if m.byMem {
@@ -424,6 +498,9 @@ func (m model) footer() []hint {
 		if !m.single() {
 			hs = append(hs, hint{"← → machines", "right", hintView})
 		}
+		if len(m.body()) > m.bodyHeight() {
+			hs = append(hs, hint{"↑↓ scroll", "down", hintView})
+		}
 	} else if len(m.hosts) > 1 {
 		hs = append(hs, hint{"enter details", "enter", hintGo})
 		if len(m.hosts) > 1 {
@@ -437,6 +514,7 @@ func (m model) footer() []hint {
 	if len(m.hosts) > 0 {
 		hs = append(hs, hint{"t processes", "t", hintGo})
 	}
+	hs = append(hs, hint{"a agents", "a", hintGo})
 	for _, h := range m.hosts {
 		if !h.up() && h.status != "connecting" {
 			hs = append(hs, hint{"r reconnect", "r", hintAct})
@@ -474,8 +552,6 @@ func runUI(ctx context.Context, cfg config, md mode, demo bool) error {
 	switch {
 	case md == modePopup && !demo:
 		defer notePopup()()
-	case md == modePane:
-		defer notePane()()
 	}
 	m := newModel(ctx, cfg, md, demo)
 	// WithContext: a SIGTERM (a newer open replacing this popup) ends it
@@ -522,10 +598,12 @@ func (m model) view() string {
 	var body []string
 	if len(m.hosts) == 0 {
 		body = []string{"", styleDim.Render("  No machines to watch. Add some to config.json (see the README).")}
+	} else if m.aiView {
+		body = m.window(m.viewAI(m.height-3), m.height-3)
 	} else if m.procs {
 		body = m.viewProcs(m.hosts[m.cursor], m.height-3)
 	} else if m.detail {
-		body = m.viewDetail(m.hosts[m.cursor], m.height-3)
+		body = m.window(m.viewDetail(m.hosts[m.cursor], m.height-3), m.height-3)
 	} else {
 		body = m.viewGrid(m.height - 3)
 	}

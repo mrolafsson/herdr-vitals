@@ -242,7 +242,9 @@ func gauge(pct float64, width int, c lipgloss.TerminalColor) string {
 		out += fg(c).Render("╸")
 		rest--
 	}
-	return out + fg(look.Surface).Render(strings.Repeat("━", rest))
+	// The rest a thinner line: what's full reads by its shape, not only its
+	// colour (with the terminal's own colours, the two can be close).
+	return out + fg(look.Surface).Render(strings.Repeat("─", rest))
 }
 
 // cells is a row of small bars, one a core: how evenly the work is spread.
@@ -607,8 +609,11 @@ const (
 	cardGap = 1
 )
 
-func (m model) grid() layout {
-	n := max(1, len(m.hosts))
+func (m model) grid() layout { return m.gridFor(len(m.order())) }
+
+// gridFor is how n cards sit.
+func (m model) gridFor(n int) layout {
+	n = max(1, n)
 	avail := m.width - 2 // a cell of margin either side
 	cols := max(1, min(n, (avail+cardGap)/(minCard+cardGap)))
 	w := min(maxCard, (avail-(cols-1)*cardGap)/cols)
@@ -619,6 +624,9 @@ func (m model) grid() layout {
 
 // card is a machine's card, border and all, as tall as height.
 func (m model) card(i int, w, height int) []string {
+	if i == m.aiIdx() {
+		return m.aiCard(w, height)
+	}
 	h := m.hosts[i]
 	inner := m.cardLines(h, w-4)
 	for len(inner) < height-2 {
@@ -656,6 +664,10 @@ func (m model) rowHeight(r []int) int {
 	w := m.grid().w
 	hgt := 0
 	for _, i := range r {
+		if i == m.aiIdx() {
+			hgt = max(hgt, len(m.aiCardLines(w-4))+2)
+			continue
+		}
 		hgt = max(hgt, len(m.cardLines(m.hosts[i], w-4))+2)
 	}
 	return hgt
@@ -783,6 +795,9 @@ func (m model) viewHeader() string {
 		if len(parts) == 0 {
 			parts = append(parts, styleDim.Render("connecting…"))
 		}
+		if ai := m.aiSummary(); ai != "" {
+			parts = append(parts, styleDim.Render("·"), ai)
+		}
 		left += strings.Join(parts, "  ")
 	}
 	dot := styleOK.Render("●")
@@ -812,6 +827,9 @@ func durationText(d time.Duration) string {
 func (m model) viewStrip() string {
 	var full, short []string
 	for _, i := range m.order() {
+		if i == m.aiIdx() {
+			continue
+		}
 		h := m.hosts[i]
 		name := styleTitle.Render(h.t.Name)
 		if !h.up() {

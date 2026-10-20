@@ -59,6 +59,39 @@ func (a *alerts) ease(key string) {
 	}
 }
 
+// checkAccounts looks at the accounts' limits for anything to say: at 80%
+// of one, and again at 95%, each until it's back under 70% (a reset, say).
+func (a *alerts) checkAccounts(accounts []account, now time.Time) {
+	for _, acct := range accounts {
+		for _, l := range shownLimits(acct.Limits) {
+			key := "limit " + acct.Key + " " + l.Label
+			if l.Percent < 70 {
+				a.ease(key + " 80")
+				a.ease(key + " 95")
+				continue
+			}
+			what := l.Label + " limit"
+			if l.Label == "week" || l.Label == "session" {
+				what = map[string]string{"week": "weekly limit", "session": "session limit"}[l.Label]
+			}
+			body := acct.Name + ": " + what + " at " + pctText(l.Percent)
+			if r := resetText(l.ResetsAt, now); r != "" {
+				body += ", resets " + r
+			}
+			switch {
+			case l.Percent >= 95:
+				// Past both at once: said once, for 95, and 80 counted as said.
+				if !a.active[key+" 80"] {
+					a.active[key+" 80"] = true
+				}
+				a.raise(key+" 95", body)
+			case l.Percent >= 80:
+				a.raise(key+" 80", body)
+			}
+		}
+	}
+}
+
 // check looks at a machine's round for anything to say.
 func (a *alerts) check(t target, s *sample, v vitals, recent []point, fills map[string]time.Duration) {
 	name := t.Name

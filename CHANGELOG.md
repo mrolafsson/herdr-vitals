@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0 - 2026-10-20
+
+- **Your agents' AI usage and limits** (`a`): every account your Claude and
+  Codex agents run on, as graphs on one clock: its session, week and
+  per-model (Fable) limits and when they reset, its agents' tokens a
+  minute, and how full each limit has been; then every agent's session on
+  the same clock. The last three hours, or with `z` the day. `enter` goes
+  to an agent. No clauth needed; with it, its names and its idle accounts.
+- **On the machines' screen:** an AI card among the machines, or with one
+  machine, the accounts in its details (every limit, or each week, as room
+  allows). The header names the account nearest a limit.
+- **A toast at 80% of an account's limit**, and at 95%, until it resets.
+- **Screens scroll** when they don't fit: the details and the Agents screen
+  (↑↓, PgUp/PgDn, Home/End, the wheel), saying what's above and below.
+- **Easier to read in a pane:** small graphs, the name on its own line,
+  gauges whose fill reads by shape as well as colour.
+- **The pane's key closes it** again however it was opened.
+- Usage graphs are smoothed over five minutes, and a rare burst (a session
+  resumed, its context cached at once) runs off the top rather than
+  flattening the rest.
+- An account Anthropic turns away is asked again when it says, not later.
+
 ## 0.1.0 - 2026-10-20
 
 First release.

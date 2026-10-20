@@ -1,8 +1,8 @@
 id = "herdr-vitals"
 name = "Vitals"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.9.0"
-description = "How your machines are doing, at a glance: CPU, load, memory, disks (and when they'll be full), network and what's busiest, for this machine and every one you work on over ssh. A popup, or a pane that stays."
+description = "How your machines are doing, at a glance: CPU, load, memory, disks (and when they'll be full), network and what's busiest, for this machine and every one you work on over ssh; and your agents' AI usage and limits. A popup, or a pane that stays."
 platforms = ["linux", "macos"]
 
 # Builds ./bin/herdr-vitals from source with Go, or downloads the release

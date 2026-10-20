@@ -26,6 +26,9 @@ type config struct {
 	// Alerts toasts when a machine runs low on CPU, memory or disk; needs
 	// Background. On by default.
 	Alerts *bool `json:"alerts"`
+	// AIAlerts toasts when an account the agents use nears a limit: at 80%
+	// and 95%. On by default; needs Alerts.
+	AIAlerts *bool `json:"ai_alerts"`
 	// IntervalSeconds is how often each machine is read. Default 2.
 	IntervalSeconds float64 `json:"interval_seconds"`
 	// Theme: "dark", "light", or empty to ask the terminal.
@@ -109,6 +112,9 @@ func withDefaults(cfg config) config {
 	}
 	if cfg.Alerts == nil {
 		cfg.Alerts = &on
+	}
+	if cfg.AIAlerts == nil {
+		cfg.AIAlerts = &on
 	}
 	// Faster than half a second is the probe watching itself.
 	if cfg.IntervalSeconds < 0.5 {
