@@ -70,7 +70,7 @@ async function ask(req, machine) {
 }
 
 // How often a machine is read while it's shown.
-const EVERY_MS = 1000;
+const EVERY_MS = 2000;
 
 // The equalizer: as many bands as fit (a core each; more cores than bands
 // share one), each this many segments tall; where yellow and red start.
@@ -81,7 +81,7 @@ const SEGMENTS = 16;
 const WARN_AT = 10;
 const HOT_AT = 14;
 // A peak holds this many readings, then falls a segment a reading.
-const PEAK_HOLD = 3;
+const PEAK_HOLD = 2;
 // The window: as wide either way; normal this tall (and scrolls), compact as
 // tall as what's in it.
 const WINDOW_W = 480;
@@ -394,7 +394,7 @@ export default class Vitals extends View {
               .child(div().text_size(10.5).font_semibold().text_color(levelCol).child(r.level === "ok" ? "OK" : `${r.level.toUpperCase()} ${r.why}`)))))
           .when(Boolean(this.err), (el) => el.child(div().text_size(12).text_color(o.fix).child(this.err)))
           // The CPU, as an equalizer.
-          .child(this.section(o, r?.perCore?.length ? `CPU · ${r.perCore.length} cores` : `CPU · the last ${HISTORY_BANDS} seconds`, "pulse"))
+          .child(this.section(o, r?.perCore?.length ? `CPU · ${r.perCore.length} cores` : `CPU · the last ${(HISTORY_BANDS * EVERY_MS) / 1000} seconds`, "pulse"))
           .child(h_flex().flex_none().gap(14).items_end()
             .child(this.equalizer(o, w - 92))
             .child(v_flex().flex_none().w(78).gap(2).items_end()
