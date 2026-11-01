@@ -160,7 +160,7 @@ this computer, or any machine the app is connected to.
 - **Less or More:** a click in the title bar switches to a compact window
   (the CPU, memory, and every disk added up together) and back; it's kept.
 
-![Compact, on the demo's atlas: a calm 52% across its 16 cores, then just memory and every disk together](docs/images/app-compact.png)
+![Compact, on the demo's atlas: a calm 30% across its 16 cores, then just memory and every disk together](docs/images/app-compact.png)
 
 **How it works.** The mod is the plugin's own code: it runs
 `herdr-vitals app` (one JSON request in, one answer out) on the machine
