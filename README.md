@@ -5,12 +5,14 @@
 Agents run hot. A build, a test suite, a model training, five Claude
 sessions at once: the box they're on fills its disk, runs out of memory or
 spends the afternoon swapping, and you find out when everything slows to a
-crawl. herdr-vitals is a [herdr](https://herdr.dev) plugin that shows every
-machine you work on, the one herdr runs on and every server you ssh to, as
-a card: CPU, load, memory, disks, network and what's busiest, live. And it
-tells you when one runs low.
+crawl. herdr-vitals shows you, live: in the [Herdr app](https://herdr.dev),
+a window you keep beside your work with each machine's CPU as a graphic
+equalizer, a band a core; and in a [herdr](https://herdr.dev) TUI popup,
+every machine you work on as a card. And it tells you when one runs low.
 
 ![Five machines as cards: atlas calm, gpu-box warning on CPU with /data full in two days, build-01 hot with its disk at 92%, a Mac calm, and edge-02 refused by ssh](docs/images/grid.png)
+
+*In the herdr TUI.*
 
 - **One look, every machine.** A card each, with graphs of the last few
   minutes. Calm is quiet, each reading in its own colour; what wants a look
@@ -38,51 +40,33 @@ tells you when one runs low.
   background, lightly: about 0.1% of a core for this machine.
 - **A popup or a pane.** Glance and close, or keep it beside your agents;
   a pane a line high is one line of every machine's load.
-- **It fits in.** Follows herdr's theme, works with the mouse. Linux and
-  macOS.
+- **It fits in.** Follows the app's or herdr's theme, works with the mouse.
+  Linux and macOS.
 
-## Works with the other herdr plugins
-
-This is one of six plugins that are useful alone and better together.
-Install [herdr-recap](https://github.com/mrolafsson/herdr-recap), [herdr-github](https://github.com/mrolafsson/herdr-github), [herdr-linear](https://github.com/mrolafsson/herdr-linear), [herdr-snooze](https://github.com/mrolafsson/herdr-snooze) or [herdr-file-transfer](https://github.com/mrolafsson/herdr-file-transfer) alongside it and they find each other:
-there is nothing to configure.
-
-| Plugin | What it adds to the others |
-| --- | --- |
-| [herdr-recap](https://github.com/mrolafsson/herdr-recap) | Every agent in one list. An agent's pull request and its Linear issue are links there: a click, or `ctrl+g` / `ctrl+l`, opens it in the plugin it belongs to. Snoozed agents have a tab of their own: `ctrl+s` snoozes an agent, in Snooze's popup, and `ctrl+w` wakes one. |
-| [herdr-github](https://github.com/mrolafsson/herdr-github) | Tags every space and agent with its branch's pull request (`#482 ✓ approved`), which Recap shows and groups its agents by. Opens straight on an agent's PR when Recap asks. |
-| [herdr-linear](https://github.com/mrolafsson/herdr-linear) | Tags every space and agent with the Linear issue its branch is named for (`ENG-142 In Progress`), which Recap shows. Opens straight on that issue when Recap asks. |
-| [herdr-snooze](https://github.com/mrolafsson/herdr-snooze) | Hides an agent, or a whole space, from herdr's Agents panel until a time you pick, or until the agent's done or its pull request is merged (from herdr-github's labels). Tags each snoozed agent with when it wakes (`💤 17:30`, `💤 till done`), which Recap shows. Opens straight on an agent when Recap asks, and opens Recap on one with `r`. |
-| **[herdr-vitals](https://github.com/mrolafsson/herdr-vitals)** (this one) | How the machine is doing: right of Recap's tabs, a small graph of its CPU and a gauge of its memory, yellow from 80% and red from 90%, when there's room. A click on it opens Vitals on every machine you work on, and `esc` comes back. |
-| [herdr-file-transfer](https://github.com/mrolafsson/herdr-file-transfer) | Files between the machine you're at and the server herdr runs on. Chooses the files a new Linear issue attaches (`ctrl+f` in herdr-linear's form): any on the server, or one brought over from your Mac, or from an iPad with Taildrop. |
-
-- **Auto-discovery.** Each plugin asks herdr which others are installed and
-  enabled. A link only appears when the plugin behind it is there; without
-  it the same text is shown, as text, and its key is left out.
-- **Clickable, and there and back.** herdr shows one popup at a time, so
-  following a link turns the open popup into the other plugin's, in place and
-  without a flicker, and `esc` there brings you back to where you were.
-- **Shared look.** A title, a branch, a pull request and a key are
-  drawn the same in all six, in herdr's theme colours.
-
-See [With Recap](#with-recap) for how the two meet.
-
-**Contents:** [Works with the other plugins](#works-with-the-other-herdr-plugins) ·
-[Requirements](#requirements) · [Install](#install) · [Use](#use) ·
+**Contents:** [Install](#install) · [Requirements](#requirements) · [In the Herdr app](#in-the-herdr-app-1) ·
+[Works with the other plugins](#works-with-the-other-herdr-plugins) · [In the herdr TUI](#in-the-herdr-tui-1) ·
 [Disks](#disks) · [AI usage and limits](#ai-usage-and-limits) · [Toasts](#toasts) · [Which machines](#which-machines) ·
 [With Recap](#with-recap) · [Configuration](#configuration) ·
 [Troubleshooting](#troubleshooting) · [How it works](#how-it-works) ·
 [Development](#development)
 
-## Requirements
-
-- **herdr 0.9.0** or later.
-- **Linux** or **macOS**, on arm64 or x86-64; the same for the machines it
-  watches over ssh, which need only `sh` and the usual tools.
-- **ssh access** to the other machines, without a prompt: a key loaded in
-  your agent (`ssh-add`), or herdr's own saved machines.
-
 ## Install
+
+### In the Herdr app
+
+Ask the agent in your Herdr window to *add the mod at
+github.com/mrolafsson/herdr-vitals/tree/main/app*: it follows the app's own
+steps (it reads the mod, copies it into `mods/`, merges its keys and checks
+it). Or from a terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/mrolafsson/herdr-vitals/main/install.sh | sh -s -- --app
+```
+
+That's all: the mod fetches what it needs onto each machine it reads by
+itself (see [In the Herdr app](#in-the-herdr-app-1)). ⌘⌥V opens it.
+
+### In the herdr TUI
 
 ```sh
 herdr plugin install mrolafsson/herdr-vitals
@@ -121,6 +105,22 @@ default bindings.
 `Vitals: demo (fictional machines)` in the command palette shows it on
 made-up machines: safe to try, safe to screenshot.
 
+### Both
+
+`sh install.sh` in a clone (or the `curl` line above without `-s -- --app`)
+installs whichever of the two is on the computer, and both when both are.
+They share the sampler and its history.
+
+### Requirements
+
+- **Linux** or **macOS**, on arm64 or x86-64.
+- The app's mod: the **Herdr app**, and `curl`, `tar` and `sha256sum` or
+  `shasum` on the machines it reads, which macOS and Linux have.
+- The TUI plugin: **herdr 0.9.0** or later, and for the machines it watches
+  over ssh, only `sh` and the usual tools, and **ssh access** without a
+  prompt: a key loaded in your agent (`ssh-add`), or herdr's own saved
+  machines.
+
 ### From a local checkout
 
 ```sh
@@ -131,7 +131,73 @@ herdr plugin link ./herdr-vitals
 `herdr plugin link` runs the build step (`scripts/build.sh`) the first time;
 after editing the code, `go build -o bin/herdr-vitals .`.
 
-## Use
+## In the Herdr app
+
+⌘⌥V opens a window that stays open beside your work: drag it by its title
+bar, and it comes back where you left it, on the next start too, until you
+close it (✕, or `esc`). It shows one machine at a time, at first the one
+the agent you're in runs on; the dropdown beside the title shows another:
+this computer, or any machine the app is connected to.
+
+- **CPU as a graphic equalizer.** A band a core (on a machine with more
+  than 24, neighbours share one), lit segment by segment from the bottom:
+  green, then yellow, then red. Each band's peak holds a moment as a faded
+  segment, then falls back. macOS doesn't say a core's share without root,
+  so on a Mac the bands are the last 40 seconds of the whole CPU, moving
+  left. Beside it, how busy it is, and on Linux how much of that is user,
+  system and waiting on a disk.
+- **How it's doing, in a word:** OK, or WARN and HOT in yellow and red,
+  with what it is (`WARN swap`, `HOT cpu`).
+- **The sampler's last minutes** of CPU, as a strip of thin columns.
+- **Meters** for memory, swap, load (a core: 1.00 is every core busy) and
+  network in and out, every one the same width, segment for segment.
+- **Its disks**, each with how full it is; on a Mac, the Data volume your
+  files are on, not the system's own.
+- **Less or More:** a click in the title bar switches to a compact window
+  (the CPU, memory, and every disk added up together) and back; it's kept.
+
+**How it works.** The mod is the plugin's own code: it runs
+`herdr-vitals app` (one JSON request in, one answer out) on the machine
+shown, a reading every 2 seconds while the window's open, nothing when it's
+closed: about 5 ms of CPU a reading on Linux, read straight from `/proc`,
+and about 60 ms on a Mac. The first time it reads a machine, it downloads
+the herdr-vitals release it names (`VITALS_VERSION` in `main.js`), checks
+it against the release's `checksums.txt`, and keeps it in
+`~/.local/share/herdr-vitals/app/<version>/`, apart from any TUI install;
+and it starts the sampler there, which keeps going while you use the
+window. `herdr-app do vitals.demo`, while it's open, shows made-up machines.
+
+The app's window leaves out, for now, what the TUI's popup has besides:
+when each disk will be full, the busiest processes, the last day, toasts,
+and your agents' AI usage and limits.
+
+## Works with the other herdr plugins
+
+This is one of six plugins that are useful alone and better together.
+Install [herdr-recap](https://github.com/mrolafsson/herdr-recap), [herdr-github](https://github.com/mrolafsson/herdr-github), [herdr-linear](https://github.com/mrolafsson/herdr-linear), [herdr-snooze](https://github.com/mrolafsson/herdr-snooze) or [herdr-file-transfer](https://github.com/mrolafsson/herdr-file-transfer) alongside it and they find each other:
+there is nothing to configure.
+
+| Plugin | What it adds to the others |
+| --- | --- |
+| [herdr-recap](https://github.com/mrolafsson/herdr-recap) | Every agent in one list. An agent's pull request and its Linear issue are links there: a click, or `ctrl+g` / `ctrl+l`, opens it in the plugin it belongs to. Snoozed agents have a tab of their own: `ctrl+s` snoozes an agent, in Snooze's popup, and `ctrl+w` wakes one. |
+| [herdr-github](https://github.com/mrolafsson/herdr-github) | Tags every space and agent with its branch's pull request (`#482 ✓ approved`), which Recap shows and groups its agents by. Opens straight on an agent's PR when Recap asks. |
+| [herdr-linear](https://github.com/mrolafsson/herdr-linear) | Tags every space and agent with the Linear issue its branch is named for (`ENG-142 In Progress`), which Recap shows. Opens straight on that issue when Recap asks. |
+| [herdr-snooze](https://github.com/mrolafsson/herdr-snooze) | Hides an agent, or a whole space, from herdr's Agents panel until a time you pick, or until the agent's done or its pull request is merged (from herdr-github's labels). Tags each snoozed agent with when it wakes (`💤 17:30`, `💤 till done`), which Recap shows. Opens straight on an agent when Recap asks, and opens Recap on one with `r`. |
+| **[herdr-vitals](https://github.com/mrolafsson/herdr-vitals)** (this one) | How the machine is doing: right of Recap's tabs, a small graph of its CPU and a gauge of its memory, yellow from 80% and red from 90%, when there's room. A click on it opens Vitals on every machine you work on, and `esc` comes back. |
+| [herdr-file-transfer](https://github.com/mrolafsson/herdr-file-transfer) | Files between the machine you're at and the server herdr runs on. Chooses the files a new Linear issue attaches (`ctrl+f` in herdr-linear's form): any on the server, or one brought over from your Mac, or from an iPad with Taildrop. |
+
+- **Auto-discovery.** Each plugin asks herdr which others are installed and
+  enabled. A link only appears when the plugin behind it is there; without
+  it the same text is shown, as text, and its key is left out.
+- **Clickable, and there and back.** herdr shows one popup at a time, so
+  following a link turns the open popup into the other plugin's, in place and
+  without a flicker, and `esc` there brings you back to where you were.
+- **Shared look.** A title, a branch, a pull request and a key are
+  drawn the same in all six, in herdr's theme colours.
+
+See [With Recap](#with-recap) for how the two meet.
+
+## In the herdr TUI
 
 `prefix+alt+v` opens the popup: a card a machine, the selected one outlined.
 Enter, or a click on the selected card, opens its details: the CPU over the

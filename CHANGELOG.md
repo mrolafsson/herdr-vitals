@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0 - 2026-11-01
+
+- **In the Herdr app.** A Vitals mod (in `app/`): ⌘⌥V opens a window that
+  stays beside your work, on the machine of the agent you're in, any other
+  a dropdown away. Its CPU as a graphic equalizer, a band a core (on a Mac,
+  the last 40 seconds), with peaks that hold and fall; memory, swap, load
+  and network as meters; its disks; a word on how it's doing. Compact for
+  the CPU, memory and disk at a glance. A reading every 2 seconds while
+  it's open. It fetches the herdr-vitals it needs onto each machine by
+  itself. `sh install.sh --app` installs it (`--tui` the plugin; no flag,
+  both).
+- **`herdr-vitals app JSON`**: what the mod runs, a reading of this machine
+  against the last one asked for, from the plugin's own code.
+- The sampler starts as a systemd user unit of its own on Linux, so it
+  outlives herdr-core's commands; and keeps going while the app's Vitals
+  reads a machine with no herdr TUI.
+- macOS's recovery volume and Xcode's simulator runtimes aren't listed as
+  disks: they're always nearly full, and not where your files are.
+
 ## 0.2.0 - 2026-10-20
 
 - **Your agents' AI usage and limits** (`a`): every account your Claude and

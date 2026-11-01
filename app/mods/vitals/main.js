@@ -117,8 +117,8 @@ export default class Vitals extends View {
     });
     cx.timer.every(EVERY_MS, (cx) => this.read(cx));
 
-    // Key bindings and `herdr-app do`: vitals.close, vitals.demo,
-    // vitals.next, vitals.prev.
+    // Key bindings and `herdr-app do`: vitals.close, vitals.demo, and
+    // vitals.next / vitals.prev for the machine shown.
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();

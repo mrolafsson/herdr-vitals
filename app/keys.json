@@ -1,4 +1,4 @@
 {
   "global": { "cmd-alt-v": "mod.open:vitals" },
-  "mod:vitals": { "escape": "vitals.close", "ctrl-right": "vitals.next", "ctrl-left": "vitals.prev" }
+  "mod:vitals": { "escape": "vitals.close" }
 }
