@@ -300,13 +300,20 @@ export default class Vitals extends View {
     }));
   }
 
+  // The title bar (what you drag the window by) and under it the machines,
+  // as many rows as they take: every one in sight, however many.
   topBar(t, o) {
     const stop = (el) => el.on_mouse_down("left", (_e, cx) => cx.stop_propagation());
-    return h_flex().flex_none().h(34).px(12).gap(8).items_center().border_b_1().border_color(o.line).bg(tint(o.sunk, 0.6))
-      .child(icon("pulse", o.accent, 14))
-      .child(div().flex_none().text_size(12.5).font_semibold().text_color(o.fg).child("Vitals"))
-      .child(div().flex_none().w(6))
-      .child(h_flex().flex_1().min_w(0).gap(4).items_center().overflow_hidden().children(this.machineList().map((m) => {
+    return v_flex().flex_none().border_b_1().border_color(o.line).bg(tint(o.sunk, 0.6))
+      .child(h_flex().h(32).px(12).gap(8).items_center()
+        .child(icon("pulse", o.accent, 14))
+        .child(div().flex_none().text_size(12.5).font_semibold().text_color(o.fg).child("Vitals"))
+        .child(div().flex_1())
+        .when(this.demo, (el) => el.child(div().flex_none().text_size(11).text_color(o.dim).child("demo · made-up machines")))
+        .child(stop(h_flex().id("close").flex_none().w(22).h(22).items_center().justify_center().rounded(5).cursor_pointer()
+          .hover((s) => s.bg(t.hover)).on_click(() => this.close()))
+          .child(icon("cross", o.muted, 12))))
+      .child(h_flex().px(10).pb(6).gap(4).flex_wrap().items_center().children(this.machineList().map((m) => {
         const on = m.key === this.machine;
         return stop(h_flex().id(`m-${m.key ?? "here"}`).flex_none().h(22).px(7).gap(5).items_center().rounded(5).cursor_pointer()
           .when(on, (el) => el.bg(o.raised).shadow_sm())
@@ -314,11 +321,7 @@ export default class Vitals extends View {
           .on_click((_e, cx) => this.pick(m.key, cx)))
           .child(icon(m.remote ? "server" : "laptop", on ? o.fg : o.dim, 11))
           .child(div().font_family(MONO).text_size(11).text_color(m.down ? o.dim : on ? o.fg : o.muted).child(m.label));
-      })))
-      .when(this.demo, (el) => el.child(div().flex_none().text_size(11).text_color(o.dim).child("demo")))
-      .child(stop(h_flex().id("close").flex_none().w(22).h(22).items_center().justify_center().rounded(5).cursor_pointer()
-        .hover((s) => s.bg(t.hover)).on_click(() => this.close()))
-        .child(icon("cross", o.muted, 12)));
+      })));
   }
 
   render() {
