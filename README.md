@@ -10,6 +10,10 @@ a window you keep beside your work with each machine's CPU as a graphic
 equalizer, a band a core; and in a [herdr](https://herdr.dev) TUI popup,
 every machine you work on as a card. And it tells you when one runs low.
 
+![Vitals in the Herdr app, on the demo's gpu-box: its 32 cores as an equalizer at 88% busy with a WARN on CPU, a strip of the last minutes, memory, load and network meters, and its two disks](app/preview.png)
+
+*In the Herdr app.*
+
 ![Five machines as cards: atlas calm, gpu-box warning on CPU with /data full in two days, build-01 hot with its disk at 92%, a Mac calm, and edge-02 refused by ssh](docs/images/grid.png)
 
 *In the herdr TUI.*
@@ -155,6 +159,8 @@ this computer, or any machine the app is connected to.
   files are on, not the system's own.
 - **Less or More:** a click in the title bar switches to a compact window
   (the CPU, memory, and every disk added up together) and back; it's kept.
+
+![Compact: gpu-box's CPU equalizer, then just memory and every disk together](docs/images/app-compact.png)
 
 **How it works.** The mod is the plugin's own code: it runs
 `herdr-vitals app` (one JSON request in, one answer out) on the machine

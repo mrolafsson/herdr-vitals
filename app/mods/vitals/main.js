@@ -11,7 +11,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Popup } from "gpui-base";
 import { agents, machines, spaces, exec, theme, props, closeOverlay, nextCommand } from "herdr";
-import { tones, tint, levelColor, bytes, icon, MONO } from "./look.js";
+import { tones, tint, levelColor, bytes, bytesOf, icon, MONO } from "./look.js";
 
 // The herdr-vitals this mod is part of (its release; the repo's tests hold it
 // to herdr-plugin.toml's version).
@@ -357,7 +357,7 @@ export default class Vitals extends View {
     const o = tones(t);
     const r = this.reading;
     const w = WINDOW_W - 32;
-    const mem = r ? `${bytes(r.memUsed)} of ${bytes(r.memTotal)}` : "";
+    const mem = r ? bytesOf(r.memUsed, r.memTotal) : "";
     const netMax = 125e6; // a gigabit, full
     const netPct = (b) => (b > 0 ? Math.min(100, (Math.log10(b + 1) / Math.log10(netMax)) * 100) : 0);
     const levelCol = levelColor(o, r?.level);
@@ -407,7 +407,7 @@ export default class Vitals extends View {
             .child(div().flex_none().h(6))
             .child(this.row(o, "Memory", this.meter(o, r?.mem), r ? `${Math.round(r.mem)}%` : "", mem))
             .when(size > 0, (el) => el.child(this.row(o, "Disk", this.meter(o, (100 * used) / size), `${Math.round((100 * used) / size)}%`,
-              `${bytes(used)} of ${bytes(size)}`))))
+              bytesOf(used, size)))))
           .when(!c, (el) => this.full(el, o, r, w, mem, netPct)),
       );
   }

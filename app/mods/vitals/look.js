@@ -53,6 +53,14 @@ export function bytes(n, perSec = false) {
   return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${u[i]}${perSec ? "/s" : ""}`;
 }
 
+// Two amounts, briefly: "207 of 275 GB" when they share a unit, else
+// "812 MB of 1.2 GB".
+export function bytesOf(a, b) {
+  const [x, y] = [bytes(a), bytes(b)];
+  const [xu, yu] = [x.split(" ")[1], y.split(" ")[1]];
+  return xu === yu ? `${x.split(" ")[0]} of ${y}` : `${x} of ${y}`;
+}
+
 // When something resets, from now: "in 3h 12m", "in 2d".
 export function inTime(at) {
   const ms = Date.parse(at) - Date.now();
