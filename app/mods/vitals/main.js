@@ -262,11 +262,10 @@ export default class Vitals extends View {
           Array.from({ length: SEGMENTS }, (_, k) => {
             const s = SEGMENTS - 1 - k; // top first
             const on = s < lit;
-            // The peak: where it got to a moment ago, a bright line across
-            // its segment, falling back to the band.
+            // The peak: where it got to a moment ago, a faded segment that
+            // holds, then falls back to the band.
             const cap = !on && peak > 0 && s === peak - 1;
-            if (cap) return div().w_full().h(segH).rounded(1.5).bg(tint(o.line, 0.45)).child(div().w_full().h(2).rounded(1).bg(o.fg));
-            return div().w_full().h(segH).rounded(1.5).bg(on ? colorAt(s) : tint(o.line, 0.45));
+            return div().w_full().h(segH).rounded(1.5).bg(on ? colorAt(s) : cap ? tint(colorAt(s), 0.85) : tint(o.line, 0.45));
           }),
         );
       }),
