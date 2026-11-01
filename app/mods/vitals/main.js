@@ -10,7 +10,7 @@
 // each machine it asks, the first time.
 
 import { View, div } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, Popup } from "gpui-base";
 import { agents, machines, spaces, exec, theme, props, closeOverlay, nextCommand } from "herdr";
 import { tones, tint, levelColor, bytes, inTime, icon, MONO } from "./look.js";
 
@@ -113,7 +113,7 @@ export default class Vitals extends View {
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
-        if (c === "close") this.close();
+        if (c === "close") this.picking ? (this.picking = false) : this.close();
         else if (c === "demo") {
           this.demo = !this.demo;
           this.reset();
@@ -300,28 +300,51 @@ export default class Vitals extends View {
     }));
   }
 
-  // The title bar (what you drag the window by) and under it the machines,
-  // as many rows as they take: every one in sight, however many.
+  // The title bar, what you drag the window by: the name, and the machine
+  // shown as a dropdown: a click lists them all, a pick shows it.
   topBar(t, o) {
     const stop = (el) => el.on_mouse_down("left", (_e, cx) => cx.stop_propagation());
-    return v_flex().flex_none().border_b_1().border_color(o.line).bg(tint(o.sunk, 0.6))
-      .child(h_flex().h(32).px(12).gap(8).items_center()
-        .child(icon("pulse", o.accent, 14))
-        .child(div().flex_none().text_size(12.5).font_semibold().text_color(o.fg).child("Vitals"))
-        .child(div().flex_1())
-        .when(this.demo, (el) => el.child(div().flex_none().text_size(11).text_color(o.dim).child("demo · made-up machines")))
-        .child(stop(h_flex().id("close").flex_none().w(22).h(22).items_center().justify_center().rounded(5).cursor_pointer()
-          .hover((s) => s.bg(t.hover)).on_click(() => this.close()))
-          .child(icon("cross", o.muted, 12))))
-      .child(h_flex().px(10).pb(6).gap(4).flex_wrap().items_center().children(this.machineList().map((m) => {
+    const list = this.machineList();
+    const cur = list.find((m) => m.key === this.machine) ?? list[0];
+    const trigger = stop(h_flex().id("machine").flex_none().h(24).pl(8).pr(6).gap(6).items_center().rounded(6).cursor_pointer()
+      .border_1().border_color(this.picking ? o.accent : o.line).when(Boolean(this.picking), (el) => el.bg(o.raised))
+      .hover((s) => s.bg(o.raised))
+      .on_click((_e, cx) => {
+        this.picking = !this.picking;
+        cx.notify();
+      }))
+      .child(icon(cur?.remote ? "server" : "laptop", o.muted, 12))
+      .child(div().font_family(MONO).text_size(11.5).text_color(o.fg).child(cur?.label ?? "…"))
+      .child(icon("chevron", o.dim, 11));
+    const options = v_flex().w(220).p(4).gap(1).rounded(8).border_1().border_color(o.line).bg(o.surface).shadow_md()
+      .on_mouse_down_out((_e, cx) => {
+        this.picking = false;
+        cx.notify();
+      })
+      .children(list.map((m) => {
         const on = m.key === this.machine;
-        return stop(h_flex().id(`m-${m.key ?? "here"}`).flex_none().h(22).px(7).gap(5).items_center().rounded(5).cursor_pointer()
-          .when(on, (el) => el.bg(o.raised).shadow_sm())
-          .when(!on, (el) => el.hover((s) => s.bg(t.hover)))
-          .on_click((_e, cx) => this.pick(m.key, cx)))
-          .child(icon(m.remote ? "server" : "laptop", on ? o.fg : o.dim, 11))
-          .child(div().font_family(MONO).text_size(11).text_color(m.down ? o.dim : on ? o.fg : o.muted).child(m.label));
-      })));
+        return stop(h_flex().id(`m-${m.key ?? "here"}`).h(28).px(8).gap(8).items_center().rounded(5).cursor_pointer()
+          .when(on, (el) => el.bg(tint(o.accent, 0.16)))
+          .when(!on, (el) => el.hover((s) => s.bg(o.raised)))
+          .on_click((_e, cx) => {
+            this.picking = false;
+            this.pick(m.key, cx);
+            cx.notify();
+          }))
+          .child(icon(m.remote ? "server" : "laptop", on ? o.fg : o.dim, 12))
+          .child(div().flex_1().min_w(0).truncate().font_family(MONO).text_size(11.5).text_color(m.down ? o.dim : o.fg).child(m.label))
+          .when(Boolean(m.down), (el) => el.child(div().text_size(10.5).text_color(o.dim).child("offline")))
+          .when(on, (el) => el.child(icon("check", o.accent, 12)));
+      }));
+    return h_flex().flex_none().h(38).px(12).gap(8).items_center().border_b_1().border_color(o.line).bg(tint(o.sunk, 0.6))
+      .child(icon("pulse", o.accent, 14))
+      .child(div().flex_none().text_size(12.5).font_semibold().text_color(o.fg).child("Vitals"))
+      .child(Popup.new("machines", trigger).anchor("top_left").when(Boolean(this.picking), (el) => el.content(options)))
+      .child(div().flex_1())
+      .when(this.demo, (el) => el.child(div().flex_none().text_size(11).text_color(o.dim).child("demo")))
+      .child(stop(h_flex().id("close").flex_none().w(22).h(22).items_center().justify_center().rounded(5).cursor_pointer()
+        .hover((s) => s.bg(t.hover)).on_click(() => this.close()))
+        .child(icon("cross", o.muted, 12)));
   }
 
   render() {
