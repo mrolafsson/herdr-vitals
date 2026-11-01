@@ -179,8 +179,9 @@ func sampleFor(ctx context.Context, cfg config, alerts *alerts, d time.Duration)
 				alerts.checkAccounts(u.Accounts, time.Now())
 			}
 		case <-alive.C:
-			// herdr gone three times running (a minute and a half): go too.
-			if herdrCall("ping", nil, nil) != nil {
+			// herdr gone three times running (a minute and a half): go too;
+			// unless the Herdr app's Vitals has read this machine lately.
+			if herdrCall("ping", nil, nil) != nil && !appReadLately(time.Now()) {
 				if misses++; misses >= 3 {
 					return "herdr gone"
 				}

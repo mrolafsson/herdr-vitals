@@ -114,10 +114,26 @@ func appAnswer(ctx context.Context, cfg config, req appRequest) (any, error) {
 		if req.Demo {
 			return demoReading(req.Machine, now)
 		}
+		if os.MkdirAll(stateDir(), 0o700) == nil {
+			_ = os.WriteFile(appAlivePath(), nil, 0o600)
+		}
 		ensureSampler(cfg)
 		return readingNow(ctx, cfg, now)
 	}
 	return nil, fmt.Errorf("no op %q", req.Op)
+}
+
+// appAlivePath is touched by each reading the app asks for, so the sampler
+// it started keeps going while it's in use, where there's no herdr TUI.
+func appAlivePath() string { return filepath.Join(stateDir(), "app-alive") }
+
+// appKeepsSampler is how long the sampler keeps going after the app's last
+// reading.
+const appKeepsSampler = 10 * time.Minute
+
+func appReadLately(now time.Time) bool {
+	fi, err := os.Stat(appAlivePath())
+	return err == nil && now.Sub(fi.ModTime()) < appKeepsSampler
 }
 
 // prevPath keeps the reading the mod asked for last, for the next to be
