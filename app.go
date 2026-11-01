@@ -27,7 +27,7 @@ import (
 const appVersion = "0.3.0"
 
 type appRequest struct {
-	Op      string `json:"op"` // now, ai, machines
+	Op      string `json:"op"` // now, machines
 	Demo    bool   `json:"demo,omitempty"`
 	Machine string `json:"machine,omitempty"` // the demo's: which made-up machine
 }
@@ -116,23 +116,6 @@ func appAnswer(ctx context.Context, cfg config, req appRequest) (any, error) {
 		}
 		ensureSampler(cfg)
 		return readingNow(ctx, cfg, now)
-	case "ai":
-		var u aiUsage
-		if req.Demo {
-			u = demoUsage(now)
-		} else {
-			u = newCollector().collect(ctx, now)
-		}
-		accounts := []account{}
-		for _, a := range u.Accounts {
-			a.Name = clean(a.Name, false)
-			a.Err = clean(a.Err, false)
-			if a.Limits == nil {
-				a.Limits = []limitBar{}
-			}
-			accounts = append(accounts, a)
-		}
-		return map[string]any{"accounts": accounts}, nil
 	}
 	return nil, fmt.Errorf("no op %q", req.Op)
 }

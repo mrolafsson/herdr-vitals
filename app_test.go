@@ -66,10 +66,6 @@ func TestAppDemoReading(t *testing.T) {
 			}
 		}
 	}
-	ai := appRun(t, `{"op":"ai","demo":true}`)["accounts"].([]any)
-	if len(ai) == 0 || len(ai[0].(map[string]any)["limits"].([]any)) == 0 {
-		t.Fatalf("ai: %v", ai)
-	}
 }
 
 // A first reading has nothing to tell CPU from (on Linux); the next has

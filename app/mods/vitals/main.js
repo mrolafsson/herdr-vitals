@@ -1,8 +1,7 @@
 // How a machine is doing, live, in a window that stays beside your work: its
 // CPU as a graphic equalizer (a band a core, lit segment by segment, green,
 // then yellow, then red, with a peak that holds and falls), memory, load and
-// network as meters, its disks and when each will be full, and how near your
-// AI accounts are to their limits. The machine the agent you're in runs on,
+// network as meters, and its disks. The machine the agent you're in runs on,
 // first; the others a click away in the top bar.
 //
 // The readings are herdr-vitals' (`app`), the TUI plugin's own code, run on
@@ -12,7 +11,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Popup } from "gpui-base";
 import { agents, machines, spaces, exec, theme, props, closeOverlay, nextCommand } from "herdr";
-import { tones, tint, levelColor, bytes, inTime, icon, MONO } from "./look.js";
+import { tones, tint, levelColor, bytes, icon, MONO } from "./look.js";
 
 // The herdr-vitals this mod is part of (its release; the repo's tests hold it
 // to herdr-plugin.toml's version).
@@ -70,9 +69,8 @@ async function ask(req, machine) {
   return res;
 }
 
-// How often a machine is read while it's shown, and its AI accounts.
+// How often a machine is read while it's shown.
 const EVERY_MS = 1000;
-const AI_EVERY_MS = 60000;
 
 // The equalizer: as many bands as fit (a core each; more cores than bands
 // share one), each this many segments tall; where yellow and red start.
@@ -107,7 +105,6 @@ export default class Vitals extends View {
     // Compact: the CPU, memory and every disk together; normal: all of it.
     this.compact = localStorage.getItem("compact") === "1";
     this.cpuHist = []; // this machine's CPU, a reading at a time, for a Mac's bands
-    this.ai = null;
     this.demoMachines = [];
     // The machine the agent you're in runs on; else the shown space's.
     const focused = agents().find((a) => a.focused);
@@ -117,10 +114,8 @@ export default class Vitals extends View {
     cx.spawn(async (cx) => {
       if (this.demo) await this.startDemo(cx);
       this.read(cx);
-      this.readAI(cx);
     });
     cx.timer.every(EVERY_MS, (cx) => this.read(cx));
-    cx.timer.every(AI_EVERY_MS, (cx) => this.readAI(cx));
 
     // Key bindings and `herdr-app do`: vitals.close, vitals.demo,
     // vitals.next, vitals.prev.
@@ -134,7 +129,6 @@ export default class Vitals extends View {
           if (this.demo) await this.startDemo(cx);
           else this.machine = null;
           this.read(cx);
-          this.readAI(cx);
         } else if (c === "next" || c === "prev") this.step(c === "next" ? 1 : -1, cx);
         cx.notify();
       }
@@ -152,7 +146,6 @@ export default class Vitals extends View {
     this.peaks = [];
     this.cpuHist = [];
     this.err = "";
-    this.ai = null;
   }
 
   close() {
@@ -172,7 +165,6 @@ export default class Vitals extends View {
     this.machine = key;
     this.reset();
     this.read(cx);
-    this.readAI(cx);
     cx.notify();
   }
 
@@ -197,19 +189,6 @@ export default class Vitals extends View {
         if (machine === this.machine) this.err = String(e?.message ?? e);
       } finally {
         this.reading_ = false;
-      }
-      cx.notify();
-    });
-  }
-
-  readAI(cx) {
-    const machine = this.machine;
-    cx.spawn(async (cx) => {
-      try {
-        const r = await ask(this.demo ? { op: "ai", demo: true } : { op: "ai" }, this.demo ? null : machine);
-        if (machine === this.machine) this.ai = r.accounts;
-      } catch {
-        if (machine === this.machine) this.ai = [];
       }
       cx.notify();
     });
@@ -401,7 +380,7 @@ export default class Vitals extends View {
       })
       .child(this.topBar(t, o))
       // Everything under the top bar scrolls, so a short window still reaches
-      // the disks and the AI limits.
+      // the disks.
       .child(
         v_flex().id("vitals-body").when(!c, (el) => el.flex_1().min_h(0).overflow_y_scrollbar()).px(16).py(12).gap(8)
           // What it is, and how it's doing in a word.
@@ -433,8 +412,7 @@ export default class Vitals extends View {
       );
   }
 
-  // Normal: the history strip, memory and load, network, each disk, and the
-  // AI limits.
+  // Normal: the history strip, memory and load, network and each disk.
   full(el, o, r, w, mem, netPct) {
     return el
           .when(Boolean(r?.history?.length), (el) => el.child(this.strip(o, w)))
@@ -450,16 +428,6 @@ export default class Vitals extends View {
           .when(Boolean(r?.disks?.length), (el) => el
             .child(this.section(o, "Disks", "disk"))
             .children(r.disks.slice(0, 6).map((d) => this.row(o, diskName(d.mount),
-              this.meter(o, d.pct), `${Math.round(d.pct)}%`, `of ${bytes(d.size)}`))))
-          // AI accounts, and how near their limits.
-          .when(Boolean(this.ai?.length), (el) => el
-            .child(this.section(o, "AI limits", "spark"))
-            .children(this.ai.slice(0, 4).flatMap((a) => [
-              h_flex().flex_none().gap(6).items_center().pt(2)
-                .child(div().text_size(12).font_semibold().text_color(o.fg).child(a.name || a.key))
-                .child(div().text_size(11).text_color(o.dim).child([a.kind, a.plan].filter(Boolean).join(" · ")))
-                .when(Boolean(a.err), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(o.dim).child(a.err))),
-              ...a.limits.map((l) => this.row(o, l.label, this.meter(o, l.percent), `${Math.round(l.percent)}%`, `resets ${inTime(l.resets_at)}`)),
-            ])));
+              this.meter(o, d.pct), `${Math.round(d.pct)}%`, `of ${bytes(d.size)}`))));
   }
 }

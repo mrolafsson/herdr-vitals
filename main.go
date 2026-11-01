@@ -29,7 +29,7 @@ const usage = `herdr-vitals — how your machines are doing, in herdr
   sampler          reads every machine in the background, for full graphs on
                    opening, a day's history and toasts when one runs low
                    (herdr starts it; --detach starts it if it isn't running)
-  app JSON         what the Herdr app's Vitals mod runs: one request (now, ai,
+  app JSON         what the Herdr app's Vitals mod runs: one request (now,
                    machines) in, one JSON answer out; the demo's with
                    "demo": true
   stream           this machine's CPU, memory and load, a JSON line a
