@@ -84,6 +84,10 @@ const WARN_AT = 10;
 const HOT_AT = 14;
 // A peak holds this many readings, then falls a segment a reading.
 const PEAK_HOLD = 3;
+// The window: as wide either way; normal this tall (and scrolls), compact as
+// tall as what's in it.
+const WINDOW_W = 480;
+const NORMAL_H = 720;
 // The meters: as many segments, each this wide.
 const METER_SEGMENTS = 22;
 const METER_SEG_W = 7;
@@ -100,6 +104,8 @@ export default class Vitals extends View {
     this.reading = null;
     this.err = "";
     this.peaks = [];
+    // Compact: the CPU, memory and every disk together; normal: all of it.
+    this.compact = localStorage.getItem("compact") === "1";
     this.cpuHist = []; // this machine's CPU, a reading at a time, for a Mac's bands
     this.ai = null;
     this.demoMachines = [];
@@ -267,7 +273,7 @@ export default class Vitals extends View {
             // The peak: where it got to a moment ago, a faded segment that
             // holds, then falls back to the band.
             const cap = !on && peak > 0 && s === peak - 1;
-            return div().w_full().h(segH).rounded(1.5).bg(on ? colorAt(s) : cap ? tint(colorAt(s), 0.85) : tint(o.line, 0.45));
+            return div().w_full().h(segH).rounded(1.5).bg(on ? colorAt(s) : cap ? tint(colorAt(s), 0.4) : tint(o.line, 0.45));
           }),
         );
       }),
@@ -353,6 +359,15 @@ export default class Vitals extends View {
       .child(Popup.new("machines", trigger).anchor("top_left").when(Boolean(this.picking), (el) => el.content(options)))
       .child(div().flex_1())
       .when(this.demo, (el) => el.child(div().flex_none().text_size(11).text_color(o.dim).child("demo")))
+      // Compact or normal: a click switches, and it's kept.
+      .child(stop(h_flex().id("size").flex_none().h(22).px(6).gap(4).items_center().rounded(5).cursor_pointer()
+        .hover((s) => s.bg(t.hover)).on_click((_e, cx) => {
+          this.compact = !this.compact;
+          localStorage.setItem("compact", this.compact ? "1" : "0");
+          cx.notify();
+        }))
+        .child(icon(this.compact ? "expand" : "collapse", o.muted, 12))
+        .child(div().text_size(11).text_color(o.muted).child(this.compact ? "More" : "Less")))
       .child(stop(h_flex().id("close").flex_none().w(22).h(22).items_center().justify_center().rounded(5).cursor_pointer()
         .hover((s) => s.bg(t.hover)).on_click(() => this.close()))
         .child(icon("cross", o.muted, 12)));
@@ -362,16 +377,20 @@ export default class Vitals extends View {
     const t = theme();
     const o = tones(t);
     const r = this.reading;
-    const w = (this.width ?? 460) - 32;
+    const w = WINDOW_W - 32;
     const mem = r ? `${bytes(r.memUsed)} of ${bytes(r.memTotal)}` : "";
     const netMax = 125e6; // a gigabit, full
     const netPct = (b) => (b > 0 ? Math.min(100, (Math.log10(b + 1) / Math.log10(netMax)) * 100) : 0);
     const levelCol = levelColor(o, r?.level);
     const cpuSub = r && r.os === "linux" ? `user ${Math.round(r.user)} · sys ${Math.round(r.system)}${r.iowait >= 1 ? ` · io ${Math.round(r.iowait)}` : ""}` : "";
 
+    const c = this.compact;
+    const used = (r?.disks ?? []).reduce((a, d) => a + d.used, 0);
+    const size = (r?.disks ?? []).reduce((a, d) => a + d.size, 0);
     return v_flex()
       .id("vitals")
-      .size_full()
+      .w(WINDOW_W)
+      .when(!c, (el) => el.h(NORMAL_H))
       .bg(t.popover)
       .text_size(12.5)
       .on_size_change((size, cx) => {
@@ -384,7 +403,7 @@ export default class Vitals extends View {
       // Everything under the top bar scrolls, so a short window still reaches
       // the disks and the AI limits.
       .child(
-        v_flex().id("vitals-body").flex_1().min_h(0).overflow_y_scrollbar().px(16).py(12).gap(8)
+        v_flex().id("vitals-body").when(!c, (el) => el.flex_1().min_h(0).overflow_y_scrollbar()).px(16).py(12).gap(8)
           // What it is, and how it's doing in a word.
           .child(h_flex().flex_none().gap(8).items_center()
             .child(div().text_size(15).font_semibold().text_color(o.fg).child(r?.host ?? (this.err ? "Not answering" : "Reading…")))
@@ -404,6 +423,19 @@ export default class Vitals extends View {
                 .child(r && !r.warming ? `${Math.round(r.cpu)}` : "–"))
               .child(div().text_size(11).text_color(o.dim).child("% busy"))
               .child(div().text_size(10.5).text_color(o.dim).child(cpuSub))))
+          // Compact: memory, and every disk together.
+          .when(c, (el) => el
+            .child(this.row(o, "Memory", this.meter(o, r?.mem), r ? `${Math.round(r.mem)}%` : "", mem))
+            .when(size > 0, (el) => el.child(this.row(o, "Disk", this.meter(o, (100 * used) / size), `${Math.round((100 * used) / size)}%`,
+              `${bytes(used)} of ${bytes(size)}`))))
+          .when(!c, (el) => this.full(el, o, r, w, mem, netPct)),
+      );
+  }
+
+  // Normal: the history strip, memory and load, network, each disk, and the
+  // AI limits.
+  full(el, o, r, w, mem, netPct) {
+    return el
           .when(Boolean(r?.history?.length), (el) => el.child(this.strip(o, w)))
           // Memory, load, network: meters.
           .child(this.section(o, "Memory and load", "spark"))
@@ -427,7 +459,6 @@ export default class Vitals extends View {
                 .child(div().text_size(11).text_color(o.dim).child([a.kind, a.plan].filter(Boolean).join(" · ")))
                 .when(Boolean(a.err), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(o.dim).child(a.err))),
               ...a.limits.map((l) => this.row(o, l.label, this.meter(o, l.percent), `${Math.round(l.percent)}%`, `resets ${inTime(l.resets_at)}`)),
-            ]))),
-      );
+            ])));
   }
 }
