@@ -76,7 +76,9 @@ const AI_EVERY_MS = 60000;
 
 // The equalizer: as many bands as fit (a core each; more cores than bands
 // share one), each this many segments tall; where yellow and red start.
-const MAX_BANDS = 32;
+const MAX_BANDS = 24;
+// A Mac's bands, the last readings of all its cores: fewer, so wider.
+const HISTORY_BANDS = 20;
 const SEGMENTS = 16;
 const WARN_AT = 10;
 const HOT_AT = 14;
@@ -210,9 +212,9 @@ export default class Vitals extends View {
   // A reading in: the bands' levels, and each band's peak, held a moment
   // then falling.
   take(r) {
-    if (!this.cpuHist.length && r.history?.length) this.cpuHist = r.history.map((p) => p.c);
+    if (!this.cpuHist.length && r.history?.length) this.cpuHist = r.history.map((p) => p.c).slice(-HISTORY_BANDS);
     if (!r.warming) this.cpuHist.push(r.cpu);
-    if (this.cpuHist.length > MAX_BANDS) this.cpuHist = this.cpuHist.slice(-MAX_BANDS);
+    if (this.cpuHist.length > HISTORY_BANDS) this.cpuHist = this.cpuHist.slice(-HISTORY_BANDS);
     this.reading = r;
     const levels = this.bands().map((v) => Math.round((Math.max(0, Math.min(100, v)) / 100) * SEGMENTS));
     this.peaks = levels.map((lit, i) => {
@@ -247,7 +249,7 @@ export default class Vitals extends View {
   // unlit ones faint; a band's peak cap a brighter segment above.
   equalizer(o, w) {
     const bands = this.bands();
-    const n = Math.max(1, bands.length || 16);
+    const n = Math.max(1, bands.length || HISTORY_BANDS);
     const gap = n > 24 ? 2 : 3;
     const bw = Math.max(4, Math.floor((w - gap * (n - 1)) / n));
     const segH = 5;
@@ -394,7 +396,7 @@ export default class Vitals extends View {
               .child(div().text_size(10.5).font_semibold().text_color(levelCol).child(r.level === "ok" ? "OK" : `${r.level.toUpperCase()} ${r.why}`)))))
           .when(Boolean(this.err), (el) => el.child(div().text_size(12).text_color(o.fix).child(this.err)))
           // The CPU, as an equalizer.
-          .child(this.section(o, r?.perCore?.length ? `CPU · ${r.perCore.length} cores` : "CPU · the last half minute", "pulse"))
+          .child(this.section(o, r?.perCore?.length ? `CPU · ${r.perCore.length} cores` : `CPU · the last ${HISTORY_BANDS} seconds`, "pulse"))
           .child(h_flex().flex_none().gap(14).items_end()
             .child(this.equalizer(o, w - 92))
             .child(v_flex().flex_none().w(78).gap(2).items_end()
