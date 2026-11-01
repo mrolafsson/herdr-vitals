@@ -344,8 +344,10 @@ export default class Vitals extends View {
         }
       })
       .child(this.topBar(t, o))
+      // Everything under the top bar scrolls, so a short window still reaches
+      // the disks and the AI limits.
       .child(
-        v_flex().flex_1().min_h(0).px(16).py(12).gap(8)
+        v_flex().id("vitals-body").flex_1().min_h(0).overflow_y_scrollbar().px(16).py(12).gap(8)
           // What it is, and how it's doing in a word.
           .child(h_flex().flex_none().gap(8).items_center()
             .child(div().text_size(15).font_semibold().text_color(o.fg).child(r?.host ?? (this.err ? "Not answering" : "Reading…")))
