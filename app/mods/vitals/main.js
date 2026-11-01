@@ -425,6 +425,7 @@ export default class Vitals extends View {
               .child(div().text_size(10.5).text_color(o.dim).child(cpuSub))))
           // Compact: memory, and every disk together.
           .when(c, (el) => el
+            .child(div().flex_none().h(6))
             .child(this.row(o, "Memory", this.meter(o, r?.mem), r ? `${Math.round(r.mem)}%` : "", mem))
             .when(size > 0, (el) => el.child(this.row(o, "Disk", this.meter(o, (100 * used) / size), `${Math.round((100 * used) / size)}%`,
               `${bytes(used)} of ${bytes(size)}`))))
