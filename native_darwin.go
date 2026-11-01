@@ -10,3 +10,6 @@ import (
 func nativeLite() bool { return false }
 
 func watchNative(context.Context, int, time.Duration, chan<- frameMsg) {}
+
+// nativeSections: macOS has no /proc to read; the probe reads it.
+func nativeSections() map[string][]string { return nil }

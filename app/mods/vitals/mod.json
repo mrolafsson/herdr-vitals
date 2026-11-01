@@ -1,0 +1,1 @@
+{ "place": "none", "title": "Vitals", "overlay": { "kind": "window", "key": "vitals", "keep": true, "width": 480, "height": 720 } }

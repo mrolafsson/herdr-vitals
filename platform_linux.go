@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -41,4 +42,22 @@ func openFiles(pid int) []string {
 		}
 	}
 	return files
+}
+
+// samplerUnit starts the sampler as a systemd unit of its own, where
+// systemd-run is: it outlives herdr-core's commands, which end what they
+// leave behind. Nil elsewhere: started as is.
+func samplerUnit(self, logPath string) *exec.Cmd {
+	run, err := exec.LookPath("systemd-run")
+	if err != nil || os.Getenv("HERDR_VITALS_NO_SYSTEMD") != "" {
+		return nil
+	}
+	argv := []string{"--user", "--collect", "--quiet"}
+	for _, kv := range os.Environ() {
+		if !strings.ContainsAny(kv, "\n") {
+			argv = append(argv, "--setenv="+kv)
+		}
+	}
+	argv = append(argv, "--setenv=HERDR_VITALS_LOG="+logPath, "/bin/sh", "-c", `exec "$0" sampler >>"$HERDR_VITALS_LOG" 2>&1`, self)
+	return exec.Command(run, argv...)
 }

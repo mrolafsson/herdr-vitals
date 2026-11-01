@@ -80,3 +80,6 @@ func openFiles(pid int) []string {
 	}
 	return files
 }
+
+// samplerUnit: on macOS the sampler starts as is, in a session of its own.
+func samplerUnit(self, logPath string) *exec.Cmd { return nil }

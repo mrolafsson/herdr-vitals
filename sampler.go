@@ -69,6 +69,13 @@ func ensureSampler(cfg config) {
 		return
 	}
 	defer log.Close()
+	// Where systemd-run is (Linux), a unit of its own: the app runs this
+	// through herdr-core, a service that ends whatever a command leaves
+	// behind, a new session included.
+	if unit := samplerUnit(self, filepath.Join(stateDir(), "sampler.log")); unit != nil {
+		_ = unit.Run()
+		return
+	}
 	cmd := exec.Command(self, "sampler")
 	cmd.Stdout, cmd.Stderr = log, log
 	// Its own session, so it outlives whoever started it: herdr may end a
