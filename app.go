@@ -38,8 +38,7 @@ type appDisk struct {
 	Size  uint64  `json:"size"`
 	Used  uint64  `json:"used"`
 	Pct   float64 `json:"pct"`
-	Fill  string  `json:"fill,omitempty"` // when it'll be full, if within a month: "2d"
-	Level string  `json:"level"`          // ok, warn, hot
+	Level string  `json:"level"` // ok, warn, hot
 }
 
 // appReading is a machine now.
@@ -165,11 +164,8 @@ func readingNow(ctx context.Context, cfg config, now time.Time) (*appReading, er
 		_ = os.WriteFile(prevPath()+".tmp", data, 0o600)
 		_ = os.Rename(prevPath()+".tmp", prevPath())
 	}
-	this := target{Name: "this", Origin: "this"}
-	log := openDiskLog(this)
-	log.note(s)
-	ps := freshRecent(this, cfg.interval(), now)
-	return describe(s, prev, ps, log.fills(now)), nil
+	ps := freshRecent(target{Name: "this", Origin: "this"}, cfg.interval(), now)
+	return describe(s, prev, ps, nil), nil
 }
 
 // describe is a reading, from it and the one before.
@@ -201,16 +197,24 @@ func describe(s, prev *sample, ps []point, fills map[string]time.Duration) *appR
 		r.PerCore = append(r.PerCore, round1(c))
 	}
 	for _, d := range s.Disks {
-		ad := appDisk{Mount: clean(d.Mount, false), Size: d.Size, Used: d.Used, Pct: round1(diskPct(d)), Level: levelWord(pctLevel(diskPct(d)))}
-		if left, ok := fills[d.Mount]; ok {
-			ad.Fill = fillText(left)
-			if fl := fillLevel(left); fl > pctLevel(diskPct(d)) {
-				ad.Level = levelWord(fl)
-			}
+		// macOS's sealed system volume shares its space with the Data volume,
+		// where your files are: that one is the one to watch.
+		if s.OS == "darwin" && d.Mount == "/" && hasMount(s, "/System/Volumes/Data") {
+			continue
 		}
+		ad := appDisk{Mount: clean(d.Mount, false), Size: d.Size, Used: d.Used, Pct: round1(diskPct(d)), Level: levelWord(pctLevel(diskPct(d)))}
 		r.Disks = append(r.Disks, ad)
 	}
 	return r
+}
+
+func hasMount(s *sample, mount string) bool {
+	for _, d := range s.Disks {
+		if d.Mount == mount {
+			return true
+		}
+	}
+	return false
 }
 
 // probeOnce is one round of the probe here: macOS, with no /proc.
@@ -265,5 +269,5 @@ func demoReading(name string, now time.Time) (any, error) {
 			ps = append(ps, pointOf(cur.At, derive(prev, cur)))
 		}
 	}
-	return describe(cur, prev, ps[:len(ps)-1], demoFills[i]), nil
+	return describe(cur, prev, ps[:len(ps)-1], nil), nil
 }

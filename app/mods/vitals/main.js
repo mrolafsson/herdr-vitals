@@ -82,6 +82,12 @@ const WARN_AT = 10;
 const HOT_AT = 14;
 // A peak holds this many readings, then falls a segment a reading.
 const PEAK_HOLD = 3;
+// The meters: as many segments, each this wide.
+const METER_SEGMENTS = 22;
+const METER_SEG_W = 7;
+
+// A disk by its last part: "/", "Data", "OrbStack".
+const diskName = (mount) => (mount === "/" ? "/" : mount.split("/").filter(Boolean).pop() ?? mount);
 
 const machineOf = (address) => (address?.includes("/") ? address.split("/")[0] : null);
 
@@ -256,9 +262,11 @@ export default class Vitals extends View {
           Array.from({ length: SEGMENTS }, (_, k) => {
             const s = SEGMENTS - 1 - k; // top first
             const on = s < lit;
+            // The peak: where it got to a moment ago, a bright line across
+            // its segment, falling back to the band.
             const cap = !on && peak > 0 && s === peak - 1;
-            return div().w_full().h(segH).rounded(1.5)
-              .bg(on ? colorAt(s) : cap ? tint(colorAt(s), 0.85) : tint(o.line, 0.45));
+            if (cap) return div().w_full().h(segH).rounded(1.5).bg(tint(o.line, 0.45)).child(div().w_full().h(2).rounded(1).bg(o.fg));
+            return div().w_full().h(segH).rounded(1.5).bg(on ? colorAt(s) : tint(o.line, 0.45));
           }),
         );
       }),
@@ -266,20 +274,22 @@ export default class Vitals extends View {
   }
 
   // A horizontal meter: segments lit left to right, by the reading's level.
-  meter(o, pct, { segments = 28, color = null } = {}) {
-    const lit = Math.round((Math.max(0, Math.min(100, pct ?? 0)) / 100) * segments);
-    const at = (i) => color ?? (i >= segments * 0.9 ? o.fix : i >= segments * 0.8 ? o.work : o.review);
-    return h_flex().flex_1().min_w(0).gap(2).h(10).children(
-      Array.from({ length: segments }, (_, i) => div().flex_1().h_full().rounded(1.5).bg(i < lit ? at(i) : tint(o.line, 0.45))),
+  // Every meter the same: as many segments, each as wide, so rows line up.
+  meter(o, pct, { color = null } = {}) {
+    const lit = Math.round((Math.max(0, Math.min(100, pct ?? 0)) / 100) * METER_SEGMENTS);
+    const at = (i) => color ?? (i >= METER_SEGMENTS * 0.9 ? o.fix : i >= METER_SEGMENTS * 0.8 ? o.work : o.review);
+    return h_flex().flex_none().gap(2).h(10).children(
+      Array.from({ length: METER_SEGMENTS }, (_, i) => div().flex_none().w(METER_SEG_W).h_full().rounded(1.5).bg(i < lit ? at(i) : tint(o.line, 0.45))),
     );
   }
 
+  // A row: what it is, its meter, its reading, and a dim note.
   row(o, label, meter, value, sub) {
     return h_flex().flex_none().gap(10).items_center().h(22)
-      .child(div().flex_none().w(62).text_size(11.5).text_color(o.dim).child(label))
+      .child(div().flex_none().w(70).truncate().text_size(11.5).text_color(o.dim).child(label))
       .child(meter)
-      .child(div().flex_none().w(120).text_size(11.5).font_family(MONO).text_color(o.fg).child(value))
-      .when(Boolean(sub), (el) => el.child(div().flex_none().text_size(11).text_color(o.dim).child(sub)));
+      .child(div().flex_none().w(72).text_size(11.5).font_family(MONO).text_color(o.fg).child(value))
+      .when(Boolean(sub), (el) => el.child(div().flex_1().min_w(0).truncate().text_size(11).text_color(o.dim).child(sub)));
   }
 
   section(o, title, ic) {
@@ -352,7 +362,7 @@ export default class Vitals extends View {
     const o = tones(t);
     const r = this.reading;
     const w = (this.width ?? 460) - 32;
-    const mem = r ? `${bytes(r.memUsed)} / ${bytes(r.memTotal)}` : "";
+    const mem = r ? `${bytes(r.memUsed)} of ${bytes(r.memTotal)}` : "";
     const netMax = 125e6; // a gigabit, full
     const netPct = (b) => (b > 0 ? Math.min(100, (Math.log10(b + 1) / Math.log10(netMax)) * 100) : 0);
     const levelCol = levelColor(o, r?.level);
@@ -402,12 +412,11 @@ export default class Vitals extends View {
           .child(this.section(o, "Network", "net"))
           .child(this.row(o, "In", this.meter(o, netPct(r?.netRx), { color: o.accent }), r ? bytes(r.netRx, true) : "", ""))
           .child(this.row(o, "Out", this.meter(o, netPct(r?.netTx), { color: o.merged }), r ? bytes(r.netTx, true) : "", ""))
-          // Disks, and when each will be full.
+          // Disks.
           .when(Boolean(r?.disks?.length), (el) => el
             .child(this.section(o, "Disks", "disk"))
-            .children(r.disks.slice(0, 6).map((d) => this.row(o, d.mount.length > 9 ? "…" + d.mount.slice(-8) : d.mount,
-              this.meter(o, d.pct), `${Math.round(d.pct)}% of ${bytes(d.size)}`,
-              d.fill ? div().text_color(levelColor(o, d.level)).font_semibold().child(`full in ${d.fill}`) : null))))
+            .children(r.disks.slice(0, 6).map((d) => this.row(o, diskName(d.mount),
+              this.meter(o, d.pct), `${Math.round(d.pct)}%`, `of ${bytes(d.size)}`))))
           // AI accounts, and how near their limits.
           .when(Boolean(this.ai?.length), (el) => el
             .child(this.section(o, "AI limits", "spark"))

@@ -404,7 +404,10 @@ func realFilesystem(dev, mount string) bool {
 	if strings.HasPrefix(dev, "/dev/loop") || strings.HasPrefix(dev, "map ") {
 		return false
 	}
-	for _, p := range []string{"/snap", "/run", "/sys", "/proc", "/dev", "/boot", "/var/lib/docker", "/private/var/vm"} {
+	// macOS's recovery volume and Xcode's simulator runtimes: not where your
+	// files are, and always nearly full by design.
+	for _, p := range []string{"/snap", "/run", "/sys", "/proc", "/dev", "/boot", "/var/lib/docker", "/private/var/vm",
+		"/Volumes/Recovery", "/Library/Developer/CoreSimulator"} {
 		if mount == p || strings.HasPrefix(mount, p+"/") {
 			return false
 		}
