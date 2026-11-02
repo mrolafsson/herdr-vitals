@@ -404,10 +404,11 @@ func realFilesystem(dev, mount string) bool {
 	if strings.HasPrefix(dev, "/dev/loop") || strings.HasPrefix(dev, "map ") {
 		return false
 	}
-	// macOS's recovery volume and Xcode's simulator runtimes: not where your
-	// files are, and always nearly full by design.
+	// macOS's recovery volume, Xcode's simulator runtimes and the sealed assets
+	// cryptexd mounts (Metal's toolchain): not where your files are, and
+	// always nearly full by design.
 	for _, p := range []string{"/snap", "/run", "/sys", "/proc", "/dev", "/boot", "/var/lib/docker", "/private/var/vm",
-		"/Volumes/Recovery", "/Library/Developer/CoreSimulator"} {
+		"/Volumes/Recovery", "/Library/Developer/CoreSimulator", "/private/var/run/com.apple.security.cryptexd"} {
 		if mount == p || strings.HasPrefix(mount, p+"/") {
 			return false
 		}
