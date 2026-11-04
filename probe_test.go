@@ -144,6 +144,12 @@ func TestOnlyRealDisksAndInterfaces(t *testing.T) {
 			t.Errorf("realInterface(%q) = %v", name, !want)
 		}
 	}
+	for mount, want := range map[string]bool{"/": true, "/System/Volumes/Data": true, "/System/Volumes/VM": false,
+		"/private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.2.47.0.E6fasy": false} {
+		if realFilesystem("/dev/disk3s1", mount) != want {
+			t.Errorf("realFilesystem(%q) = %v", mount, !want)
+		}
+	}
 	df := parseDF([]string{
 		"Filesystem 1024-blocks Used Available Capacity Mounted on",
 		"/dev/md2 458134492 262818180 171991420 61% /",
