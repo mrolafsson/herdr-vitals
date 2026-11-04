@@ -15,7 +15,7 @@ import { tones, tint, levelColor, bytes, bytesOf, icon, MONO } from "./look.js";
 
 // The herdr-vitals this mod is part of (its release; the repo's tests hold it
 // to herdr-plugin.toml's version).
-export const VITALS_VERSION = "0.3.0";
+export const VITALS_VERSION = "0.3.1";
 
 // Puts that release on a machine, once: into a folder of its own version, so
 // it never touches a herdr-vitals installed for the TUI (it shares its

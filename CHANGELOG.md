@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 - 2026-11-04
+
+- The volumes cryptexd mounts on macOS (Metal's toolchain, among others)
+  aren't listed as disks: they're always nearly full, and not where your
+  files are. Thanks, @LeandroMAcosta!
+
 ## 0.3.0 - 2026-11-01
 
 - **In the Herdr app.** A Vitals mod (in `app/`): ⌘⌥V opens a window that

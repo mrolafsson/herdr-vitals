@@ -24,7 +24,7 @@ import (
 
 // appVersion is this build's version, as herdr-plugin.toml has it (a test
 // holds them together): the mod checks it's the one it pinned.
-const appVersion = "0.3.0"
+const appVersion = "0.3.1"
 
 type appRequest struct {
 	Op      string `json:"op"` // now, machines
